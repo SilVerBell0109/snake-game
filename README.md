@@ -135,15 +135,31 @@ g++ -std=c++11 snake.cpp -o snake \
   -lncursesw && ./snake
 ```
 
-### VSCode에서 실행
-`settings.json` 에 아래 내용 추가 후 `Ctrl + Alt + N`
+### Windows (WSL 권장)
 
-```json
-"code-runner.runInTerminal": true,
-"code-runner.executorMap": {
-    "cpp": "cd $dir && g++ -std=c++11 $fileName -o $fileNameWithoutExt -I$(brew --prefix ncurses)/include -L$(brew --prefix ncurses)/lib -lncursesw && ./$fileNameWithoutExt"
-}
+Windows에서는 **WSL(Windows Subsystem for Linux)** 을 사용하는 것이 가장 간단합니다.
+
+#### 1단계 — WSL 설치 (최초 1회)
+PowerShell을 **관리자 권한**으로 열고 실행:
+```powershell
+wsl --install
 ```
+설치 후 PC를 재부팅하면 Ubuntu가 기본으로 설치됩니다.
+
+#### 2단계 — WSL 터미널에서 빌드 및 실행
+```bash
+# NCurses 설치
+sudo apt-get install libncurses5-dev libncursesw5-dev
+
+# 프로젝트 폴더로 이동 (예: C:\Users\이름\Desktop\snake 에 있는 경우)
+cd /mnt/c/Users/이름/Desktop/snake
+
+# 빌드 및 실행
+g++ -std=c++11 snake.cpp -o snake -lncurses && ./snake
+```
+
+> WSL이 설치되어 있다면 파일 탐색기에서 프로젝트 폴더를 열고,
+> 주소창에 `wsl` 을 입력하면 해당 경로에서 바로 WSL 터미널을 열 수 있습니다.
 
 ---
 

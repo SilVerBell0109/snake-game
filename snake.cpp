@@ -2,12 +2,12 @@
  * Snake Game - C++ with ncurses
  * 국민대학교 소프트웨어융합대학 C++ 프로젝트
  *
- * 실행 방법 (VSCode):
- *   settings.json 에 아래 두 줄 추가 후 Run Code (Ctrl+Alt+N)
- *   "code-runner.runInTerminal": true,
- *   "code-runner.executorMap": {
- *       "cpp": "cd $dir && g++ -std=c++11 $fileName -o $fileNameWithoutExt -lncurses && ./$fileNameWithoutExt"
- *   }
+ * 실행 방법 (터미널):
+ *   Linux  : g++ -std=c++11 snake.cpp -o snake -lncurses && ./snake
+ *   macOS  : g++ -std=c++11 snake.cpp -o snake \
+ *              -I$(brew --prefix ncurses)/include \
+ *              -L$(brew --prefix ncurses)/lib -lncursesw && ./snake
+ *   Windows: WSL 터미널에서 Linux 명령과 동일하게 실행
  *
  * 조작법:
  *   W / A / S / D  : 이동
