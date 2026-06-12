@@ -39,7 +39,7 @@ void Special::placeItem(const int cellType, Board& board) {
                 empty.push_back({i, j});
     if (empty.empty()) return;
     const Point pos = empty[rand() % (int)empty.size()];
-    mapItems_.push_back({pos.y, pos.x, cellType, SPECIAL_LIFE});
+    mapItems_.push_back({pos.y, pos.x, cellType, SPECIAL_LIFE, 0});
     board.setCell(pos.y, pos.x, cellType);
 }
 

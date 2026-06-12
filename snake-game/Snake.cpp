@@ -47,7 +47,7 @@ bool Snake::setNextDir(const int d) {
 // ── move ─────────────────────────────────────────────────────────
 bool Snake::move(Board& board, Food& food, Poison& poison,
                  Gate& gate, Special& special,
-                 int& growthCount, int& poisonCount, int& gateCount) {
+                 int& poisonCount, int& gateCount) {
     dir_ = nextDir_;
     Point newHead = calcNextHead(dir_);
 
@@ -108,7 +108,7 @@ bool Snake::move(Board& board, Food& food, Poison& poison,
 
     if (headCell == CELL_GROWTH) {
         if (food.consume(newHead.y, newHead.x, board))
-            { grew = true; growthCount++; }
+            grew = true;
     } else if (headCell == CELL_POISON) {
         if (poison.consume(newHead.y, newHead.x, board))
             { shrank = true; poisonCount++; }
@@ -165,10 +165,3 @@ int  Snake::getLength()    const { return (int)body_.size(); }
 int  Snake::getMaxLength() const { return maxLength_; }
 int  Snake::getDir()       const { return dir_; }
 
-bool Snake::checkMission(const Mission& m,
-                         const int growth, const int poison, const int gate) const {
-    return getLength() >= m.targetLength &&
-           growth      >= m.targetGrowth &&
-           poison      >= m.targetPoison &&
-           gate        >= m.targetGate;
-}

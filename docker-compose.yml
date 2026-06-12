@@ -1,5 +1,8 @@
 services:
   snake:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: linux/amd64
     stdin_open: true
     tty: true

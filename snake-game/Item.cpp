@@ -19,7 +19,7 @@ void ItemBase::spawnItem(const int cellType, const int life,
     if (empty.empty()) return;
 
     const Point pos = empty[rand() % (int)empty.size()];
-    items_.push_back({pos.y, pos.x, cellType, life});
+    items_.push_back({pos.y, pos.x, cellType, life, 0});
     board.setCell(pos.y, pos.x, cellType);
 }
 

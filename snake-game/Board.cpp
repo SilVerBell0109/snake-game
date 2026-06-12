@@ -119,6 +119,7 @@ static const int STAGE_MAPS[4][MAP_SIZE][MAP_SIZE] = {
 
 // ── 생성자 / 소멸자 ──────────────────────────────────────────────
 Board::Board() {
+    memset(label_, 0, sizeof(label_));
     winMap_   = newwin(MAP_SIZE + 2, MAP_SIZE * 2 + 2, 0, 0);
     winBoard_ = newwin(MAP_SIZE + 2, 30, 0, MAP_SIZE * 2 + 3);
 }
@@ -130,6 +131,7 @@ Board::~Board() {
 
 // ── 스테이지 로드 ────────────────────────────────────────────────
 void Board::loadStage(const int stage) {
+    memset(label_, 0, sizeof(label_));
     for (int i = 0; i < MAP_SIZE; i++)
         for (int j = 0; j < MAP_SIZE; j++) {
             baseMap_[i][j] = STAGE_MAPS[stage][i][j];
@@ -148,6 +150,14 @@ int Board::getCell(const int y, const int x) const {
 
 int Board::getBase(const int y, const int x) const {
     return baseMap_[y][x];
+}
+
+void Board::setLabel(const int y, const int x, const char c) {
+    label_[y][x] = c;
+}
+
+void Board::clearLabel(const int y, const int x) {
+    label_[y][x] = 0;
 }
 
 WINDOW* Board::getWinMap() const {
@@ -189,7 +199,10 @@ void Board::draw() const {
                 break;
             case CELL_GROWTH:
                 wattron(winMap_, COLOR_PAIR(6));
-                wprintw(winMap_, "++");
+                if (label_[i][j] != 0)
+                    wprintw(winMap_, "+%c", label_[i][j]);
+                else
+                    wprintw(winMap_, "++");
                 wattroff(winMap_, COLOR_PAIR(6));
                 break;
             case CELL_POISON:
@@ -245,37 +258,48 @@ void Board::draw() const {
 // ── 점수판 렌더링 ────────────────────────────────────────────────
 void Board::drawScoreBoard(const int stage, const int elapsedSec,
                            const int curLen, const int maxLen,
-                           const int growth, const int poison, const int gate,
-                           const Mission& m) const {
+                           const bool collected[9],
+                           const int poison, const int gate) const {
     werase(winBoard_);
     box(winBoard_, 0, 0);
 
     mvwprintw(winBoard_,  1, 2, "[ Score Board ]");
-    mvwprintw(winBoard_,  2, 2, "Stage  : %d",   stage + 1);
-    mvwprintw(winBoard_,  3, 2, "Time   : %ds",  elapsedSec);
+    mvwprintw(winBoard_,  2, 2, "Stage  : %d",  stage + 1);
+    mvwprintw(winBoard_,  3, 2, "Time   : %ds", elapsedSec);
 
-    mvwprintw(winBoard_,  5, 2, "B: %d / %d",    curLen, maxLen);
-    mvwprintw(winBoard_,  6, 2, "+: %d",          growth);
-    mvwprintw(winBoard_,  7, 2, "-: %d",          poison);
-    mvwprintw(winBoard_,  8, 2, "G: %d",          gate);
+    mvwprintw(winBoard_,  5, 2, "B: %d / %d",   curLen, maxLen);
+    mvwprintw(winBoard_,  6, 2, "-: %d",         poison);
+    mvwprintw(winBoard_,  7, 2, "G: %d",         gate);
 
-    mvwprintw(winBoard_, 10, 2, "[ Mission ]");
-    mvwprintw(winBoard_, 11, 2, "B>=%2d : %s", m.targetLength,
-              curLen  >= m.targetLength ? "v" : "x");
-    mvwprintw(winBoard_, 12, 2, "+>=%2d : %s", m.targetGrowth,
-              growth  >= m.targetGrowth ? "v" : "x");
-    mvwprintw(winBoard_, 13, 2, "->=%2d : %s", m.targetPoison,
-              poison  >= m.targetPoison ? "v" : "x");
-    mvwprintw(winBoard_, 14, 2, "G>=%2d : %s", m.targetGate,
-              gate    >= m.targetGate   ? "v" : "x");
+    int cnt = 0;
+    for (int i = 0; i < 9; i++) if (collected[i]) cnt++;
+    mvwprintw(winBoard_,  9, 2, "[ Growth %d/9 ]", cnt);
+
+    // +1~+5: row 10,  +6~+9: row 11
+    for (int row = 0; row < 2; row++) {
+        wmove(winBoard_, 10 + row, 2);
+        const int start = row * 5;
+        const int end   = (row == 0) ? 5 : 9;
+        for (int i = start; i < end; i++) {
+            if (collected[i]) {
+                wattron(winBoard_, COLOR_PAIR(6) | A_BOLD);
+                wprintw(winBoard_, "+%d ", i + 1);
+                wattroff(winBoard_, COLOR_PAIR(6) | A_BOLD);
+            } else {
+                wattron(winBoard_, COLOR_PAIR(7));
+                wprintw(winBoard_, "+%d ", i + 1);
+                wattroff(winBoard_, COLOR_PAIR(7));
+            }
+        }
+    }
 
     wrefresh(winBoard_);
 }
 
 // ── 활성 특수 효과 표시 ─────────────────────────────────────────
 void Board::drawActiveEffects(const std::string& effects) const {
-    mvwprintw(winBoard_, 16, 2, "[ Effects ]");
-    mvwprintw(winBoard_, 17, 2, "%-26s", effects.c_str());
+    mvwprintw(winBoard_, 13, 2, "[ Effects ]");
+    mvwprintw(winBoard_, 14, 2, "%-26s", effects.c_str());
     wrefresh(winBoard_);
 }
 

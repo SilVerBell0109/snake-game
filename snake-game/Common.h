@@ -51,6 +51,7 @@ struct Item {
     int y, x;
     int type;
     int life;
+    int num;   // growth number 1-9; 0 for non-growth items
 };
 
 struct Mission {

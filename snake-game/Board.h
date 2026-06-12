@@ -18,11 +18,11 @@ public:
     // ncurses로 맵 전체를 화면에 출력
     void draw() const;
 
-    // 우측 점수판 윈도우에 점수·미션 현황 출력
+    // 우측 점수판 윈도우에 점수·수집 현황 출력
     void drawScoreBoard(int stage, int elapsedSec,
                         int curLen, int maxLen,
-                        int growth, int poison, int gate,
-                        const Mission& m) const;
+                        const bool collected[9],
+                        int poison, int gate) const;
 
     // 점수판 하단에 활성 특수 효과 문자열 표시
     void drawActiveEffects(const std::string& effects) const;
@@ -30,6 +30,8 @@ public:
     void    setCell(int y, int x, int val);
     int     getCell(int y, int x) const;
     int     getBase(int y, int x) const;
+    void    setLabel(int y, int x, char c);
+    void    clearLabel(int y, int x);
     WINDOW* getWinMap() const;
 
     // 맵 중앙에 메시지를 napms(1800) 동안 표시
@@ -38,6 +40,7 @@ public:
 private:
     int     map_[MAP_SIZE][MAP_SIZE];
     int     baseMap_[MAP_SIZE][MAP_SIZE];
+    char    label_[MAP_SIZE][MAP_SIZE];  // display char for numbered items
     WINDOW* winMap_;
     WINDOW* winBoard_;
 };

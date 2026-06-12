@@ -61,7 +61,7 @@ static void showStartScreen(const int highScore) {
     attroff(COLOR_PAIR(3));
 
     mvprintw(cy, cx - 9, "[ 아이템 ]");
-    attron(COLOR_PAIR(6));  mvprintw(cy + 1, cx - 9, "  ++ Growth  : 길이+1");   attroff(COLOR_PAIR(6));
+    attron(COLOR_PAIR(6));  mvprintw(cy + 1, cx - 9, "  +N Growth  : 길이+1 / 1~9 수집시 클리어");   attroff(COLOR_PAIR(6));
     attron(COLOR_PAIR(7));  mvprintw(cy + 2, cx - 9, "  -- Poison  : 길이-1");   attroff(COLOR_PAIR(7));
     attron(COLOR_PAIR(8));  mvprintw(cy + 3, cx - 9, "  GG Gate    : 순간이동"); attroff(COLOR_PAIR(8));
     attron(COLOR_PAIR(9));  mvprintw(cy + 4, cx - 9, "  >> Speed   : 속도 증가");attroff(COLOR_PAIR(9));
@@ -154,7 +154,6 @@ int main() {
             int timeTick   = 0;
             int elapsedSec = 0;
 
-            int growthCount = 0;
             int poisonCount = 0;
             int gateCount   = 0;
 
@@ -202,7 +201,7 @@ int main() {
 
                 // ── 뱀 이동 ─────────────────────────────────────
                 if (!snake.move(board, food, poison, gate, special,
-                                growthCount, poisonCount, gateCount)) {
+                                poisonCount, gateCount)) {
                     failed = true; break;
                 }
 
@@ -234,17 +233,16 @@ int main() {
                 board.draw();
                 board.drawScoreBoard(stage, elapsedSec,
                                      snake.getLength(), snake.getMaxLength(),
-                                     growthCount, poisonCount, gateCount,
-                                     MISSIONS[stage]);
+                                     food.getCollected(),
+                                     poisonCount, gateCount);
                 board.drawActiveEffects(special.getActiveEffectStr());
 
-                // ── 미션 달성 확인 ────────────────────────────────
-                if (snake.checkMission(MISSIONS[stage],
-                                       growthCount, poisonCount, gateCount))
+                // ── 클리어 조건: +1~+9 전부 수집 ────────────────────
+                if (food.allCollected())
                     cleared = true;
             }
 
-            totalGrowth += growthCount;
+            totalGrowth += food.getCollectedCount();
             totalGate   += gateCount;
 
             // ── 스테이지 결과 처리 ────────────────────────────────
