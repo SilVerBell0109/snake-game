@@ -54,7 +54,7 @@ static void showStartScreen(const int highScore) {
     mvprintw(cy - 5, cx - 9, "[ 조작법 ]");
     mvprintw(cy - 4, cx - 9, "  Arrow / WASD  :  이동");
     mvprintw(cy - 3, cx - 9, "  Q             :  게임 종료");
-    mvprintw(cy - 2, cx - 9, "  반대 방향 입력 → 무시됨");
+    mvprintw(cy - 2, cx - 9, "  반대 방향 입력 → 게임 오버");
 
     attron(COLOR_PAIR(3));
     mvprintw(cy - 1, cx - 14, "────────────────────────────────");
@@ -184,7 +184,7 @@ int main() {
                     if (key == KEY_RIGHT || key == 'd' || key == 'D')
                         dir = special.isMirrorActive() ? LEFT  : RIGHT;
 
-                    snake.setNextDir(dir);
+                    if (!snake.setNextDir(dir)) { failed = true; break; }
                 }
 
                 // ── 틱 대기 ─────────────────────────────────────
@@ -238,8 +238,10 @@ int main() {
                 // ── 일반 아이템 출현 (15틱마다) ──────────────────
                 itemTick++;
                 if (itemTick >= 15) {
-                    food.spawn(board);
-                    poison.spawn(board);
+                    if (food.getCount() + poison.getCount() < ITEM_LIMIT)
+                        food.spawn(board);
+                    if (food.getCount() + poison.getCount() < ITEM_LIMIT)
+                        poison.spawn(board);
                     itemTick = 0;
                 }
 
@@ -259,8 +261,12 @@ int main() {
                                      totalScore, highScore);
                 board.drawActiveEffects(special.getActiveEffectStr());
 
-                // ── 클리어 조건: +1~+9 전부 수집 ────────────────
-                if (food.allCollected())
+                // ── 클리어 조건: 스테이지 미션 4가지 모두 달성 ────
+                const Mission& m = MISSIONS[stage];
+                if (snake.getMaxLength()     >= m.targetLength &&
+                    food.getCollectedCount() >= m.targetGrowth &&
+                    poisonCount              >= m.targetPoison &&
+                    gateCount                >= m.targetGate)
                     cleared = true;
             }
 

@@ -9,8 +9,13 @@ CXX      = g++
 CXXFLAGS = -std=c++11 -Wall -Wextra
 
 ifeq ($(shell uname), Darwin)
-    CXXFLAGS += -I$(shell brew --prefix ncurses)/include
-    LDFLAGS   = -L$(shell brew --prefix ncurses)/lib -lncursesw
+    BREW_NCURSES := $(shell brew --prefix ncurses 2>/dev/null)
+    ifneq ($(BREW_NCURSES),)
+        CXXFLAGS += -I$(BREW_NCURSES)/include
+        LDFLAGS   = -L$(BREW_NCURSES)/lib -lncursesw
+    else
+        LDFLAGS   = -lncurses
+    endif
 else
     LDFLAGS   = -lncursesw
 endif

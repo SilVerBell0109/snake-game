@@ -1,163 +1,259 @@
-# Research: snake.cpp 현황 분석
+# 현황 분석 (Research) — 과제 불일치 5개 항목
 
-## 1. 파일 구조
-
-단일 파일 `snake.cpp` (799줄). 전역변수 다수, 클래스 없음.
+기준 코드: snake-game/ 내 현재 파일
 
 ---
 
-## 2. 전역변수 목록 (과제 위반 — 전부 제거 대상)
+## 수정 1 — 반대 방향 입력 시 Game Over
 
-| 변수 | 타입 | 역할 |
-|------|------|------|
-| `map[21][21]` | `int[][]` | 실시간 맵 배열 |
-| `baseMap[21][21]` | `int[][]` | 원본 맵 (아이템 복원용) |
-| `snake` | `vector<Point>` | 뱀 몸통 (front=Head) |
-| `snakeDir` / `nextDir` | `int` | 현재/다음 방향 |
-| `items` | `vector<Item>` | Growth+Poison 혼합 관리 |
-| `gateA` / `gateB` | `Gate struct` | 게이트 쌍 |
-| `gateTick` | `int` | 게이트 수명 카운터 |
-| `score_maxLen/growth/poison/gate/time` | `int` x5 | 점수 지표 |
-| `currentStage` | `int` | 현재 스테이지 (0~3) |
-| `gameFailed/stageClear/gameOver` | `bool` | 게임 상태 플래그 |
-| `winMap` / `winBoard` | `WINDOW*` | ncurses 윈도우 |
+### 현재 동작 위치
 
----
-
-## 3. 함수별 로직 분석
-
-### `loadMap(stage)`
-- STAGE_MAPS 배열에서 baseMap, map 양쪽에 복사
-- **버그**: 현재 모든 테두리가 Immune Wall(2)
-- **수정 필요**: 4구석만 2, 나머지 테두리는 1(Wall)로 → Gate 출현 가능
-
-### `initGame()`
-- 뱀 (10,12)~(10,10) 오른쪽 방향으로 초기화
-- 아이템·게이트·점수 전부 리셋
-
-### `drawMap()`
-- 셀값 0~7만 렌더링, 추가 아이템 케이스 없음
-
-### `drawScoreBoard()`
-- `winBoard`에 Stage/Time/B/+/-/G 출력
-- Mission v/x 표시
-
-### `spawnItem()`
-- Growth/Poison 각각 최대 3개, 빈 칸 무작위 배치
-- 두 타입이 단일 `vector<Item>`에 혼합 — 클래스 분리 대상
-
-### `moveSnake()` — 핵심 변경 포인트
-
-**반대 방향 처리 (수정 필요)**
+**Snake.cpp:40-45**
 ```cpp
-// 현재: 반대 방향 입력 무시하고 계속 진행
-if (nextDir == getOppositeDir(snakeDir))
-    nextDir = snakeDir;  // 덮어쓰고 계속
-
-// 요구: 반대 방향 입력 → 즉시 gameFailed = true
+// 현재: 반대 방향이면 무시하고 true 반환
+bool Snake::setNextDir(const int d) {
+    if (d == oppositeDir(dir_)) return true;  // ← 무시
+    nextDir_ = d;
+    return true;
+}
 ```
 
-충돌 판정 순서 (유지):
-1. 경계 밖 → 실패
-2. Immune Wall(2) → 실패
-3. Wall(1) → 실패
-4. 자기 몸 충돌 (tail 제외) → 실패
-5. Gate(7) 진입: 우선순위 진입→CW→CCW→반대
-
-아이템 소비:
-- Growth(5): 꼬리 유지 (길이+1)
-- Poison(6): 꼬리 2칸 제거, 길이<3 → 실패
-
-Gate 진출 우선순위 — 이미 올바르게 구현됨:
+**main.cpp:187**
 ```cpp
-int priority[4] = {snakeDir, cw[snakeDir], ccw[snakeDir], opposite};
-// CW 테이블: UP→RIGHT, DOWN→LEFT, LEFT→UP, RIGHT→DOWN
-// CCW 테이블: UP→LEFT, DOWN→RIGHT, LEFT→DOWN, RIGHT→UP
+snake.setNextDir(dir);  // 반환값 버림
 ```
 
-### 조작키 (수정 필요)
+**Snake.h:21** — 주석: "반대 방향 입력은 무시"
+
+**main.cpp:57** — 시작 화면: `"  반대 방향 입력 → 무시됨"`
+
+**README.md:113** — "반대 방향 입력은 무시됩니다"
+
+### 필요한 변경
+
+`setNextDir()`이 이미 `bool` 반환형이므로:
+- `Snake.cpp:42` → `return true;` → `return false;` (반대 방향 시)
+- `main.cpp:187` → 반환값 체크하여 `failed = true`
+- `Snake.h:21`, `main.cpp:57`, `README.md:113` 문구 수정
+
+---
+
+## 수정 2 — 미션 기반 스테이지 클리어 조건
+
+### 현재 클리어 판정 위치
+
+**main.cpp:262-264**
 ```cpp
-// 현재 (WASD)
-if (key == 'w' || key == 'W') nextDir = UP;
-if (key == 's' || key == 'S') nextDir = DOWN;
-if (key == 'a' || key == 'A') nextDir = LEFT;
-if (key == 'd' || key == 'D') nextDir = RIGHT;
-
-// 요구 (방향키)
-if (key == KEY_UP)    → setNextDir(UP)
-if (key == KEY_DOWN)  → setNextDir(DOWN)
-if (key == KEY_LEFT)  → setNextDir(LEFT)
-if (key == KEY_RIGHT) → setNextDir(RIGHT)
-// 반대 방향이면 setNextDir 내부에서 즉시 실패 처리
+// 클리어 조건: +1~+9 전부 수집
+if (food.allCollected())
+    cleared = true;
 ```
+
+### MISSIONS 정의 (Board.cpp:11-16)
+
+```cpp
+const Mission MISSIONS[4] = {
+    {  6,  2, 1, 0 },  // Stage 1: B≥6, +≥2, -≥1, G≥0
+    {  7,  3, 1, 1 },  // Stage 2: B≥7, +≥3, -≥1, G≥1
+    {  8,  4, 2, 2 },  // Stage 3: B≥8, +≥4, -≥2, G≥2
+    { 10,  5, 2, 3 },  // Stage 4: B≥10, +≥5, -≥2, G≥3
+};
+```
+
+→ 정의만 있고 **main.cpp에서 전혀 참조하지 않음**
+
+### 판정에 필요한 현재 변수 (main.cpp 이미 존재)
+
+| 미션 조건 | 사용할 변수 | 의미 |
+|---|---|---|
+| B: 목표 길이 | `snake.getMaxLength()` | 이력 최대 길이 (줄어도 유지) |
+| +: Growth 획득 수 | `food.getCollectedCount()` | 수집한 번호 수(최대 9) |
+| -: Poison 획득 수 | `poisonCount` | 이번 스테이지 누적 |
+| G: Gate 사용 수 | `gateCount` | 이번 스테이지 누적 |
+
+→ 4가지 변수 모두 이미 존재. 판정식만 교체하면 됨.
+
+### 충돌 검토
+
+- `food.allCollected()` 제거 후에도 `Food::allCollected()` 함수 자체는 Food.cpp에 남음
+- +1~+9 Growth 번호 UI(`collected[]` 기반)는 drawScoreBoard 파라미터로 독립적으로 전달 → 클리어 조건과 무관하게 유지됨
+- `food.getCollectedCount()`는 기존에 점수 계산(main.cpp:217)에서 이미 사용 중 → 미션 판정에도 재사용 가능
+- Stage 1 미션 `targetGate=0`은 항상 자동 달성(0 이상 = 언제나 true)
 
 ---
 
-## 4. 맵 배열 값 규약 현황
+## 수정 3 — Score Board 미션 달성 현황 표시
+
+### 현재 drawScoreBoard 레이아웃 (Board.cpp:259-312)
 
 ```
-현재: 0~7 (7종)
-추가: 8~13 (추가 아이템 6종)
+row  1: [ Score Board ]
+row  2: Stage  : N
+row  3: Time   : Xs
+row  4: Score  : N     (COLOR_PAIR(4)|A_BOLD, yellow)
+row  5: Best   : N     (COLOR_PAIR(9), cyan)
+row  7: B: N / N       (curLen / maxLen)
+row  8: -: N           (poison)
+row  9: G: N           (gate)
+row 11: [ Growth N/9 ]
+row 12: +1 +2 +3 +4 +5
+row 13: +6 +7 +8 +9
+```
+drawActiveEffects()가 row 15-16에 추가 기록
+
+**누락: `+: N` (Growth 획득 수) 없음, Mission 섹션 없음**
+
+### 윈도우 공간 분석
+
+`winBoard_ = newwin(MAP_SIZE+2, 30, ...)` → 내부 유효 행: row 1~21 (21행)  
+현재 최대 row 16(effectsstring) 사용 → 5행 여유 있음
+
+### 파라미터 분석
+
+현재 시그니처:
+```cpp
+void Board::drawScoreBoard(int stage, int elapsedSec,
+                           int curLen, int maxLen,
+                           const bool collected[9],
+                           int poison, int gate,
+                           int score, int highScore)
 ```
 
-테두리 구성 수정 내용:
-| 위치 | 현재 | 요구 |
-|------|------|------|
-| 4구석 (0,0)(0,20)(20,0)(20,20) | 2 | 2 (유지) |
-| 나머지 테두리 | 2 | 1 (Wall — Gate 가능) |
-| 내부 장애물 | 1 | 1 (유지) |
+미션 달성 판정에 필요한 모든 정보:
+- `stage` → `MISSIONS[stage]` 접근 가능 (Board.cpp에 MISSIONS 이미 정의됨)
+- `maxLen` → B 조건
+- `collected[9]` → count로 + 조건 계산 가능 (`for(int i=0;i<9;i++) if(collected[i]) cnt++;`)
+- `poison` → - 조건
+- `gate` → G 조건
+
+→ **시그니처 변경 불필요**, 내부에서 `MISSIONS[stage]`와 비교
+
+### 새 레이아웃 (row 20까지 사용)
+
+```
+row  1: [ Score Board ]
+row  2: Stage  : N
+row  3: Time   : Xs
+row  4: Score  : N     (yellow)
+row  5: Best   : N     (cyan)
+row  6: (빈)
+row  7: B: N / N
+row  8: +: N           ← 신규
+row  9: -: N
+row 10: G: N
+row 11: [ Mission ]    ← 신규 섹션
+row 12: B: 6    [v] or [ ]   ← 신규
+row 13: +: 2    [v] or [ ]   ← 신규
+row 14: -: 1    [v] or [ ]   ← 신규
+row 15: G: 0    [v] or [ ]   ← 신규
+row 16: [ Growth N/9 ] ← row 11에서 이동
+row 17: +1 +2 +3 +4 +5 ← row 12에서 이동
+row 18: +6 +7 +8 +9    ← row 13에서 이동
+row 19: [ Effects ]    ← row 15에서 이동
+row 20: effects string ← row 16에서 이동
+```
+
+→ drawActiveEffects()의 row 번호도 15→19, 16→20으로 수정 필요
 
 ---
 
-## 5. 없는 기능 (신규 구현 대상)
+## 수정 4 — Growth + Poison 합산 3개 제한
 
-| 기능 | 설명 |
-|------|------|
-| 추가 아이템 6종 | Speed(8) / Slow(9) / Shield(10) / Ghost(11) / Mirror(12) / Reverse(13) |
-| Item 추상 기반 클래스 | Food/Poison 상속 |
-| Special 클래스 | 6종 특수 아이템 통합 관리 |
-| `drawActiveEffects()` | 활성 효과 실시간 표시 |
-| Docker 환경 | Dockerfile + docker-compose.yml |
-| 방향키 조작 | WASD → KEY_UP/DOWN/LEFT/RIGHT |
-| 반대방향=즉시실패 | Rule #1 원본 복원 |
+### 현재 각자 독립 제한
+
+**Food.cpp:14**
+```cpp
+void Food::spawn(Board& board) {
+    if ((int)items_.size() >= ITEM_LIMIT) return;  // Food 자체 3개 제한
+    ...
+}
+```
+
+**Item.cpp:11** (Poison이 사용하는 spawnItem)
+```cpp
+void ItemBase::spawnItem(..., int maxCount, ...) {
+    if ((int)items_.size() >= maxCount) return;  // 각자 3개 제한
+    ...
+}
+```
+
+**main.cpp:239-244**
+```cpp
+if (itemTick >= 15) {
+    food.spawn(board);
+    poison.spawn(board);
+    itemTick = 0;
+}
+```
+
+→ 현재 최대 Food 3개 + Poison 3개 = **동시 6개 가능**
+
+### 구현 방식 비교
+
+**방법 A (main.cpp 외부 체크):**  
+main.cpp 스폰 호출 전에 합산 조건 체크. Food/Poison 내부 코드 변경 없음.
+
+```cpp
+if (itemTick >= 15) {
+    if (food.getCount() + poison.getCount() < ITEM_LIMIT)
+        food.spawn(board);
+    if (food.getCount() + poison.getCount() < ITEM_LIMIT)
+        poison.spawn(board);
+    itemTick = 0;
+}
+```
+
+- 장점: 변경 최소, Food/Poison 내부 ITEM_LIMIT 체크는 방어 코드로 유지
+- 단점: Food 스폰 후 카운트가 올라가므로 두 번째 `food.getCount()`가 갱신된 값 반환 → 자연스러운 흐름
+
+**방법 B (spawn() 파라미터 추가):**  
+`food.spawn(board, externalCount)` 식으로 외부 카운터 전달. 클래스 인터페이스 변경 수반.
+
+→ 방법 A 채택. 변경 최소화.
 
 ---
 
-## 6. ncurses 색상 쌍 현황 및 확장 계획
+## 수정 5 — Makefile macOS 링크 보완
 
-```
-pair 1:  BLACK/BLACK   — 미사용
-pair 2:  WHITE/WHITE   — Wall
-pair 3:  CYAN/CYAN     — Immune Wall
-pair 4:  YELLOW/YELLOW — Snake Head
-pair 5:  GREEN/GREEN   — Snake Body
-pair 6:  GREEN/BLACK   — Growth Item (+)
-pair 7:  RED/BLACK     — Poison Item (-)
-pair 8:  MAGENTA/MAGENTA — Gate (GG)
---- 신규 추가 ---
-pair 9:  CYAN/BLACK    — Speed Boost (>)
-pair 10: WHITE/CYAN    — Slow (<)  ← bg색으로 ImmuneWall과 시각 구분
-pair 11: YELLOW/BLACK  — Shield (*)
-pair 12: MAGENTA/BLACK — Ghost (@)
-pair 13: RED/YELLOW    — Mirror (%) ← 주황 대체
-pair 14: MAGENTA/BLACK — Reverse (&) ← Ghost와 동일 pair 공유 가능, 별도 pair로 분리
+### 현재 Darwin 브랜치 (Makefile:11-13)
+
+```makefile
+ifeq ($(shell uname), Darwin)
+    CXXFLAGS += -I$(shell brew --prefix ncurses)/include
+    LDFLAGS   = -L$(shell brew --prefix ncurses)/lib -lncursesw
 ```
 
----
+### 문제
 
-## 7. 게임 루프 구조 (현재)
+`brew --prefix ncurses`가 실패(ncurses 미설치)하면 빈 문자열 반환:
+- `-I/include` → 헤더 못 찾음
+- `-L/lib -lncursesw` → 라이브러리 못 찾음
 
+현재 환경 확인:
 ```
-srand → setlocale → initscr → 색상 정의 → 윈도우 생성 → showStartScreen
-→ restart 루프
-  → stage 루프 (0~3)
-    → loadMap → initGame → spawnGate
-    → 게임 루프
-      → getch(WASD) → napms(200ms) → moveSnake → updateItems → spawnItem(15틱)
-      → updateGate → spawnGate(만료시) → drawMap → drawScoreBoard → checkMission
-    → GAME OVER 처리 or Stage Clear 처리
-→ endwin
+$ brew --prefix ncurses 2>/dev/null
+/opt/homebrew/opt/ncurses
+$ ls /opt/homebrew/opt/ncurses/lib/libncursesw*   ← 존재함 (문제 없음)
 ```
 
-TICK_MS가 고정 200ms. 추가 아이템 Speed/Slow 효과로 동적으로 변해야 함.
-→ `Special::getCurrentTickMs()` 반환값을 napms()에 사용.
+→ 현재 환경에서는 동작하지만, ncurses 미설치 환경 또는 경로가 다른 환경에서 실패.
+
+### 수정 방향
+
+`brew --prefix ncurses 2>/dev/null` 결과가 비어 있으면 macOS 기본 ncurses(-lncurses) 사용:
+
+```makefile
+ifeq ($(shell uname), Darwin)
+    BREW_NCURSES := $(shell brew --prefix ncurses 2>/dev/null)
+    ifneq ($(BREW_NCURSES),)
+        CXXFLAGS += -I$(BREW_NCURSES)/include
+        LDFLAGS   = -L$(BREW_NCURSES)/lib -lncursesw
+    else
+        LDFLAGS   = -lncurses
+    endif
+else
+    LDFLAGS   = -lncursesw
+endif
+```
+
+Docker: `uname` = Linux → else 브랜치(`-lncursesw`) → 변경 없음

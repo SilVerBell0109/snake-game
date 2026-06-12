@@ -17,7 +17,7 @@ public:
     // 맵 중앙에 길이 3으로 초기화하고 Board에 반영
     void init(Board& board);
 
-    // 다음 틱에 적용할 방향 버퍼 설정 (반대 방향 입력은 무시)
+    // 다음 틱에 적용할 방향 버퍼 설정 (반대 방향 입력 시 false 반환 → 즉시 게임 오버)
     bool setNextDir(int d);
 
     // 1틱 이동: 충돌 판정(Shield/Ghost 연동), 아이템 소비, Gate 통과, Reverse 적용

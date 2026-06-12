@@ -275,17 +275,30 @@ void Board::drawScoreBoard(const int stage, const int elapsedSec,
     mvwprintw(winBoard_,  5, 2, "Best   : %-7d", highScore);
     wattroff(winBoard_, COLOR_PAIR(9));
 
+    int growthCnt = 0;
+    for (int i = 0; i < 9; i++) if (collected[i]) growthCnt++;
+
     mvwprintw(winBoard_,  7, 2, "B: %d / %d",   curLen, maxLen);
-    mvwprintw(winBoard_,  8, 2, "-: %d",         poison);
-    mvwprintw(winBoard_,  9, 2, "G: %d",         gate);
+    mvwprintw(winBoard_,  8, 2, "+: %d",         growthCnt);
+    mvwprintw(winBoard_,  9, 2, "-: %d",         poison);
+    mvwprintw(winBoard_, 10, 2, "G: %d",         gate);
 
-    int cnt = 0;
-    for (int i = 0; i < 9; i++) if (collected[i]) cnt++;
-    mvwprintw(winBoard_, 11, 2, "[ Growth %d/9 ]", cnt);
+    mvwprintw(winBoard_, 12, 2, "[ Mission ]");
+    const Mission& m = MISSIONS[stage];
+    mvwprintw(winBoard_, 13, 2, "B: %-3d  [%c]", m.targetLength,
+              (maxLen    >= m.targetLength) ? 'v' : ' ');
+    mvwprintw(winBoard_, 14, 2, "+: %-3d  [%c]", m.targetGrowth,
+              (growthCnt >= m.targetGrowth) ? 'v' : ' ');
+    mvwprintw(winBoard_, 15, 2, "-: %-3d  [%c]", m.targetPoison,
+              (poison    >= m.targetPoison) ? 'v' : ' ');
+    mvwprintw(winBoard_, 16, 2, "G: %-3d  [%c]", m.targetGate,
+              (gate      >= m.targetGate)   ? 'v' : ' ');
 
-    // +1~+5: row 12,  +6~+9: row 13
+    mvwprintw(winBoard_, 17, 2, "[ Growth %d/9 ]", growthCnt);
+
+    // +1~+5: row 18,  +6~+9: row 19
     for (int row = 0; row < 2; row++) {
-        wmove(winBoard_, 12 + row, 2);
+        wmove(winBoard_, 18 + row, 2);
         const int start = row * 5;
         const int end   = (row == 0) ? 5 : 9;
         for (int i = start; i < end; i++) {
@@ -306,8 +319,8 @@ void Board::drawScoreBoard(const int stage, const int elapsedSec,
 
 // ── 활성 특수 효과 표시 ─────────────────────────────────────────
 void Board::drawActiveEffects(const std::string& effects) const {
-    mvwprintw(winBoard_, 15, 2, "[ Effects ]");
-    mvwprintw(winBoard_, 16, 2, "%-26s", effects.c_str());
+    mvwprintw(winBoard_, 20, 2, "[ Effects ]");
+    mvwprintw(winBoard_, 21, 2, "%-26s", effects.c_str());
     wrefresh(winBoard_);
 }
 
