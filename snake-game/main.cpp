@@ -52,40 +52,37 @@ static void showStartScreen(const int highScore) {
     attroff(COLOR_PAIR(3));
 
     mvprintw(cy - 5, cx - 9, "[ 조작법 ]");
-    mvprintw(cy - 4, cx - 9, "  Arrow Up    :  위로 이동");
-    mvprintw(cy - 3, cx - 9, "  Arrow Down  :  아래로 이동");
-    mvprintw(cy - 2, cx - 9, "  Arrow Left  :  왼쪽으로 이동");
-    mvprintw(cy - 1, cx - 9, "  Arrow Right :  오른쪽으로 이동");
-    mvprintw(cy,     cx - 9, "  Q           :  게임 종료");
-    mvprintw(cy + 1, cx - 9, "  반대 방향 입력 → 즉시 게임 오버!");
+    mvprintw(cy - 4, cx - 9, "  Arrow / WASD  :  이동");
+    mvprintw(cy - 3, cx - 9, "  Q             :  게임 종료");
+    mvprintw(cy - 2, cx - 9, "  반대 방향 입력 → 무시됨");
 
     attron(COLOR_PAIR(3));
-    mvprintw(cy + 2, cx - 14, "────────────────────────────────");
+    mvprintw(cy - 1, cx - 14, "────────────────────────────────");
     attroff(COLOR_PAIR(3));
 
-    mvprintw(cy + 3, cx - 9, "[ 아이템 ]");
-    attron(COLOR_PAIR(6));  mvprintw(cy + 4, cx - 9,  "  ++ Growth  : 길이+1");   attroff(COLOR_PAIR(6));
-    attron(COLOR_PAIR(7));  mvprintw(cy + 5, cx - 9,  "  -- Poison  : 길이-1");   attroff(COLOR_PAIR(7));
-    attron(COLOR_PAIR(8));  mvprintw(cy + 6, cx - 9,  "  GG Gate    : 순간이동"); attroff(COLOR_PAIR(8));
-    attron(COLOR_PAIR(9));  mvprintw(cy + 7, cx - 9,  "  >> Speed   : 속도 증가");attroff(COLOR_PAIR(9));
-    attron(COLOR_PAIR(10)); mvprintw(cy + 8, cx - 9,  "  << Slow    : 속도 감소");attroff(COLOR_PAIR(10));
-    attron(COLOR_PAIR(11)); mvprintw(cy + 9, cx - 9,  "  ** Shield  : 충돌 1회 방어");attroff(COLOR_PAIR(11));
-    attron(COLOR_PAIR(12)); mvprintw(cy + 10, cx - 9, "  @@ Ghost   : 자체 통과");attroff(COLOR_PAIR(12));
-    attron(COLOR_PAIR(13)); mvprintw(cy + 11, cx - 9, "  %% Mirror  : 좌우 반전");attroff(COLOR_PAIR(13));
-    attron(COLOR_PAIR(14) | A_BOLD); mvprintw(cy + 12, cx - 9, "  && Reverse : 몸 뒤집기");attroff(COLOR_PAIR(14) | A_BOLD);
+    mvprintw(cy, cx - 9, "[ 아이템 ]");
+    attron(COLOR_PAIR(6));  mvprintw(cy + 1, cx - 9, "  ++ Growth  : 길이+1");   attroff(COLOR_PAIR(6));
+    attron(COLOR_PAIR(7));  mvprintw(cy + 2, cx - 9, "  -- Poison  : 길이-1");   attroff(COLOR_PAIR(7));
+    attron(COLOR_PAIR(8));  mvprintw(cy + 3, cx - 9, "  GG Gate    : 순간이동"); attroff(COLOR_PAIR(8));
+    attron(COLOR_PAIR(9));  mvprintw(cy + 4, cx - 9, "  >> Speed   : 속도 증가");attroff(COLOR_PAIR(9));
+    attron(COLOR_PAIR(10)); mvprintw(cy + 5, cx - 9, "  << Slow    : 속도 감소");attroff(COLOR_PAIR(10));
+    attron(COLOR_PAIR(11)); mvprintw(cy + 6, cx - 9, "  ** Shield  : 충돌 1회 방어");attroff(COLOR_PAIR(11));
+    attron(COLOR_PAIR(12)); mvprintw(cy + 7, cx - 9, "  @@ Ghost   : 자체 통과");attroff(COLOR_PAIR(12));
+    attron(COLOR_PAIR(13)); mvprintw(cy + 8, cx - 9, "  %% Mirror  : 좌우 반전");attroff(COLOR_PAIR(13));
+    attron(COLOR_PAIR(14) | A_BOLD); mvprintw(cy + 9, cx - 9, "  && Reverse : 몸 뒤집기");attroff(COLOR_PAIR(14) | A_BOLD);
 
     attron(COLOR_PAIR(3));
-    mvprintw(cy + 13, cx - 14, "────────────────────────────────");
+    mvprintw(cy + 10, cx - 14, "────────────────────────────────");
     attroff(COLOR_PAIR(3));
 
     if (highScore > 0) {
         attron(COLOR_PAIR(4));
-        mvprintw(cy + 14, cx - 9, "  Best Score: %d", highScore);
+        mvprintw(cy + 11, cx - 9, "  Best Score: %d", highScore);
         attroff(COLOR_PAIR(4));
     }
 
     attron(COLOR_PAIR(6) | A_BOLD);
-    mvprintw(cy + 16, cx - 14, "  SPACE BAR 를 눌러 시작하세요  ");
+    mvprintw(cy + 13, cx - 14, "  SPACE BAR 를 눌러 시작하세요  ");
     attroff(COLOR_PAIR(6) | A_BOLD);
 
     refresh();
@@ -175,17 +172,21 @@ int main() {
                 }
 
                 if (key == KEY_UP    || key == KEY_DOWN ||
-                    key == KEY_LEFT  || key == KEY_RIGHT) {
+                    key == KEY_LEFT  || key == KEY_RIGHT ||
+                    key == 'w' || key == 'W' ||
+                    key == 's' || key == 'S' ||
+                    key == 'a' || key == 'A' ||
+                    key == 'd' || key == 'D') {
                     int dir = -1;
-                    if (key == KEY_UP)    dir = UP;
-                    if (key == KEY_DOWN)  dir = DOWN;
+                    if (key == KEY_UP   || key == 'w' || key == 'W') dir = UP;
+                    if (key == KEY_DOWN || key == 's' || key == 'S') dir = DOWN;
                     // Mirror 효과: 좌우 키 방향 반전
-                    if (key == KEY_LEFT)  dir = special.isMirrorActive() ? RIGHT : LEFT;
-                    if (key == KEY_RIGHT) dir = special.isMirrorActive() ? LEFT  : RIGHT;
+                    if (key == KEY_LEFT  || key == 'a' || key == 'A')
+                        dir = special.isMirrorActive() ? RIGHT : LEFT;
+                    if (key == KEY_RIGHT || key == 'd' || key == 'D')
+                        dir = special.isMirrorActive() ? LEFT  : RIGHT;
 
-                    if (!snake.setNextDir(dir)) {
-                        failed = true; break;   // 반대 방향 입력 → 게임 오버
-                    }
+                    snake.setNextDir(dir);
                 }
 
                 // ── 틱 대기 ─────────────────────────────────────

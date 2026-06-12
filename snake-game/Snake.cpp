@@ -37,9 +37,9 @@ void Snake::init(Board& board) {
 }
 
 // ── setNextDir ───────────────────────────────────────────────────
-// 반대 방향 입력 시 false 반환 → 즉시 게임 오버
+// 반대 방향 입력 시 무시 (게임 오버 없음)
 bool Snake::setNextDir(const int d) {
-    if (d == oppositeDir(dir_)) return false;
+    if (d == oppositeDir(dir_)) return true;
     nextDir_ = d;
     return true;
 }
