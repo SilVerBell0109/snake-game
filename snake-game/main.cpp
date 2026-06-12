@@ -128,16 +128,17 @@ int main() {
 
     showStartScreen(highScore);
 
-    bool restart = true;
+    bool restart      = true;
+    int  restartStage = 0;
     while (restart) {
         restart = false;
 
-        int stagesCleared = 0;
+        int stagesCleared = restartStage;
         bool gameQuit     = false;
         int  totalGrowth  = 0;
         int  totalGate    = 0;
 
-        for (int stage = 0; stage < 4 && !gameQuit; stage++) {
+        for (int stage = restartStage; stage < 4 && !gameQuit; stage++) {
             board.loadStage(stage);
 
             Snake   snake;
@@ -251,7 +252,7 @@ int main() {
                 nodelay(board.getWinMap(), FALSE);
                 while (true) {
                     const int k = wgetch(board.getWinMap());
-                    if (k == 'r' || k == 'R') { restart = true; break; }
+                    if (k == 'r' || k == 'R') { restart = true; restartStage = stage; break; }
                     if (k == 'q' || k == 'Q') break;
                 }
                 const int finalScore = totalGrowth * 10 + totalGate * 20
@@ -277,6 +278,7 @@ int main() {
                     board.showMessage(" ** ALL CLEAR **  Congratulations! ");
                     nodelay(board.getWinMap(), FALSE);
                     wgetch(board.getWinMap());
+                    restartStage = 0;
                 }
                 napms(300);
             }
