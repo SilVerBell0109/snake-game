@@ -52,15 +52,13 @@ OOP 멀티파일 클래스 구조로 완전 재작성, 특수 아이템 6종·�
 |##                                      ##|  │ Score  : 185                 │
 |##      +3          >>                  ##|  │ Best   : 320                 │
 |##                                      ##|  │ [ Mission ]                  │
-|##  GG              +7                  ##|  │ B: 8   [v]                   │
+|##  GG              ++                  ##|  │ B: 8   [v]                   │
 |##                                      ##|  │ +: 3   [ ]                   │
 |##         HHOOOOOOO                    ##|  │ -: 1   [v]                   │
 |##                          --          ##|  │ G: 1   [v]                   │
-|##                                      ##|  │ [ Growth 3/9 ]               │
-|##                  +2                  ##|  │ +1 +2 +3 +4 +5               │
-|##  ##  ##  ##  ##  ##  ##  ##  ##  ##  ##|  │ +6 +7 +8 +9                  │
-                                             │ [ Effects ]                  │
-                                             │ SPEED(38) SHIELD             │
+|##                                      ##|  │                              │
+|##                  ++                  ##|  │ [ Effects ]                  │
+|##  ##  ##  ##  ##  ##  ##  ##  ##  ##  ##|  │ SPEED(38) SHIELD             │
                                              └──────────────────────────────┘
 ```
 
@@ -69,7 +67,6 @@ OOP 멀티파일 클래스 구조로 완전 재작성, 특수 아이템 6종·�
   - 스테이지·시간·점수·최고점수
   - 현재 뱀 상태 (B: 현재/최대 길이, +: Growth 수집 수, -: Poison 접촉 수, G: Gate 통과 수)
   - `[ Mission ]` — 현재 스테이지 B/+/-/G 목표값과 달성여부 (`[v]`/`[ ]`)
-  - `[ Growth N/9 ]` — +1~+9 수집 현황 (초록=수집, 빨강=미수집)
   - `[ Effects ]` — 현재 활성 특수 효과
 
 ---
@@ -84,7 +81,7 @@ Common.h              ← 전체 공유 상수·방향·셀값·Point/Item 구�
 ├── ItemBase          ← 아이템 추상 기반 클래스
 │   │                    순수 가상: spawn() / update() / consume() / getCount()
 │   │                    protected: spawnItem() / updateItems() 공통 헬퍼
-│   ├── Food          ← Growth Item (+1~+9) 스폰·수명·소비·수집 추적
+│   ├── Food          ← Growth Item (++) 스폰·수명·소비·수집 추적
 │   └── Poison        ← Poison Item 스폰·수명·소비
 │
 ├── Gate              ← Wall 위치 게이트 쌍 생성·수명·진출 방향 우선순위 계산
@@ -126,7 +123,7 @@ main.cpp
 | `##` | 2 | 흰색 배경 흰색 글자 | **Immune Wall** — Gate 불가, Shield 무효, 항상 게임 오버 |
 | `HH` | 3 | 노랑 배경 | **Snake Head** — 뱀의 머리 |
 | `OO` | 4 | 초록 배경 | **Snake Body** — 뱀의 몸통 |
-| `+N` | 5 | 초록 글자 | **Growth Item** — 번호 N(1~9) 표시, 수집 시 길이 +1 |
+| `++` | 5 | 초록 글자 | **Growth Item** — 수집 시 길이 +1 |
 | `--` | 6 | 빨강 글자 | **Poison Item** — 수집 시 길이 -1 (꼬리 2칸 제거), 길이 3 미만이면 게임 오버 |
 | `GG` | 7 | 마젠타 배경 | **Gate** — 순간이동 통로 |
 | `>>` | 8 | 청록 글자 | **Speed Item** — 이동 속도 증가 |
@@ -226,27 +223,14 @@ Immune                   Gate 가능 구간(col 9-11)        Immune
 
 ## 7. 아이템 시스템
 
-### 7-1. Growth Item (`+N`)
+### 7-1. Growth Item (`++`)
 
 ```
 스폰 주기 : 15틱마다 1개 시도
 수명       : 300틱 (약 60초 @ 200ms/틱)
-효과       : 뱀 길이 +1, 해당 번호를 수집 완료로 표시
-번호 범위  : +1 ~ +9
+효과       : 뱀 길이 +1
 동시 존재  : Growth + Poison 합산 최대 3개
 ```
-
-**번호 할당 방식:**  
-`Food::spawn()`은 단순 1→9 순환이 아니라, *미수집이면서 현재 맵에 없는* 번호 중 `nextNum_`에서 가장 가까운 것을 선택합니다. 이 방식으로 모든 번호가 맵에 오를 기회를 보장합니다.
-
-```
-예시: +3, +5가 맵에 있고, +1·+2·+7이 이미 수집된 상태
-  nextNum_ = 4 → 4는 맵에 없고 미수집 → +4 스폰
-  nextNum_ = 5 → 5는 이미 맵에 있음
-  nextNum_ = 6 → 6은 맵에 없고 미수집 → +6 스폰 (다음 차례)
-```
-
-`Board`의 `label_[y][x]` 배열에 숫자 문자('1'~'9')를 저장하여, 셀 값(`CELL_GROWTH = 5`)과 분리된 표시 문자를 관리합니다.
 
 ### 7-2. Poison Item (`--`)
 
@@ -336,7 +320,7 @@ Speed가 활성 효과로 남아 있으면 Slow가 맵에 스폰되지 않고, �
 
 | 행동 | 점수 |
 |---|---|
-| Growth Item (+N) 수집 | **+10점** |
+| Growth Item (++) 수집 | **+10점** |
 | Gate 통과 | **+15점** |
 | 특수 아이템 소비 (Speed·Slow·Shield·Ghost·Mirror·Reverse) | **+5점** |
 | Poison Item 수집 | **-5점** |
@@ -679,7 +663,7 @@ snake/
     ├── Common.h            ← 상수·방향·셀값·Point/Item 구조체
     ├── Board.h / Board.cpp ← 맵 배열·label 배열·ncurses 2윈도우·14색상쌍 렌더링
     ├── Item.h  / Item.cpp  ← ItemBase 추상 클래스 (spawnItem/updateItems 공통 헬퍼)
-    ├── Food.h  / Food.cpp  ← Growth Item: 번호 할당·수집 추적
+    ├── Food.h  / Food.cpp  ← Growth Item: 스폰·수명·소비·수집 카운터
     ├── Poison.h / Poison.cpp ← Poison Item: 스폰·수명·소비
     ├── Gate.h  / Gate.cpp  ← Gate 쌍 생성·수명·진출 방향 우선순위 계산
     ├── Special.h / Special.cpp ← 특수 아이템 6종·활성 효과·소비 카운터

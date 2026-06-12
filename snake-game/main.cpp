@@ -256,7 +256,7 @@ int main() {
                 board.draw();
                 board.drawScoreBoard(stage, elapsedSec,
                                      snake.getLength(), snake.getMaxLength(),
-                                     food.getCollected(),
+                                     food.getCollectedCount(),
                                      poisonCount, gateCount,
                                      totalScore, highScore);
                 board.drawActiveEffects(special.getActiveEffectStr());

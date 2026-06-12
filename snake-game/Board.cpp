@@ -199,10 +199,7 @@ void Board::draw() const {
                 break;
             case CELL_GROWTH:
                 wattron(winMap_, COLOR_PAIR(6));
-                if (label_[i][j] != 0)
-                    wprintw(winMap_, "+%c", label_[i][j]);
-                else
-                    wprintw(winMap_, "++");
+                wprintw(winMap_, "++");
                 wattroff(winMap_, COLOR_PAIR(6));
                 break;
             case CELL_POISON:
@@ -258,7 +255,7 @@ void Board::draw() const {
 // ── 점수판 렌더링 ────────────────────────────────────────────────
 void Board::drawScoreBoard(const int stage, const int elapsedSec,
                            const int curLen, const int maxLen,
-                           const bool collected[9],
+                           const int growthCnt,
                            const int poison, const int gate,
                            const int score, const int highScore) const {
     werase(winBoard_);
@@ -275,9 +272,6 @@ void Board::drawScoreBoard(const int stage, const int elapsedSec,
     mvwprintw(winBoard_,  5, 2, "Best   : %-7d", highScore);
     wattroff(winBoard_, COLOR_PAIR(9));
 
-    int growthCnt = 0;
-    for (int i = 0; i < 9; i++) if (collected[i]) growthCnt++;
-
     mvwprintw(winBoard_,  7, 2, "B: %d / %d",   curLen, maxLen);
     mvwprintw(winBoard_,  8, 2, "+: %d",         growthCnt);
     mvwprintw(winBoard_,  9, 2, "-: %d",         poison);
@@ -293,26 +287,6 @@ void Board::drawScoreBoard(const int stage, const int elapsedSec,
               (poison    >= m.targetPoison) ? 'v' : ' ');
     mvwprintw(winBoard_, 16, 2, "G: %-3d  [%c]", m.targetGate,
               (gate      >= m.targetGate)   ? 'v' : ' ');
-
-    mvwprintw(winBoard_, 17, 2, "[ Growth %d/9 ]", growthCnt);
-
-    // +1~+5: row 18,  +6~+9: row 19
-    for (int row = 0; row < 2; row++) {
-        wmove(winBoard_, 18 + row, 2);
-        const int start = row * 5;
-        const int end   = (row == 0) ? 5 : 9;
-        for (int i = start; i < end; i++) {
-            if (collected[i]) {
-                wattron(winBoard_, COLOR_PAIR(6) | A_BOLD);
-                wprintw(winBoard_, "+%d ", i + 1);
-                wattroff(winBoard_, COLOR_PAIR(6) | A_BOLD);
-            } else {
-                wattron(winBoard_, COLOR_PAIR(7));
-                wprintw(winBoard_, "+%d ", i + 1);
-                wattroff(winBoard_, COLOR_PAIR(7));
-            }
-        }
-    }
 
     wrefresh(winBoard_);
 }

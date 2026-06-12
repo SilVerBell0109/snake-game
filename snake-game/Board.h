@@ -21,7 +21,7 @@ public:
     // 우측 점수판 윈도우에 점수·수집 현황 출력
     void drawScoreBoard(int stage, int elapsedSec,
                         int curLen, int maxLen,
-                        const bool collected[9],
+                        int growthCnt,
                         int poison, int gate,
                         int score, int highScore) const;
 
