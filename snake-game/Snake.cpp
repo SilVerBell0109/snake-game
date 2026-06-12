@@ -1,25 +1,17 @@
 // Snake.cpp
-// Snake 클래스 구현
-// 1틱 이동: 반대 방향 무시, 경계/Wall/자기몸 충돌 판정,
-// Gate 통과, Growth/Poison/Speed 아이템 소비, 맵 반영
+// 뱀 초기화, 방향 버퍼, 1틱 이동·충돌·아이템 소비·Gate 통과·Reverse 적용
 
 #include "Snake.h"
 #include "Board.h"
 #include "Food.h"
 #include "Poison.h"
 #include "Gate.h"
-#include "Speed.h"
+#include "Special.h"
+#include <algorithm>
 
-// ── 내부 유틸 ────────────────────────────────────────────────────
+// ── 내부 헬퍼 ────────────────────────────────────────────────────
 
-int Snake::oppositeDir(int d) const {
-    if (d == UP)    return DOWN;
-    if (d == DOWN)  return UP;
-    if (d == LEFT)  return RIGHT;
-    return LEFT;
-}
-
-Point Snake::calcNextHead(int d) const {
+Point Snake::calcNextHead(const int d) const {
     Point h = body_[0];
     if (d == UP)    h.y--;
     if (d == DOWN)  h.y++;
@@ -35,13 +27,9 @@ void Snake::init(Board& board) {
     body_.push_back({10, 11});
     body_.push_back({10, 10});  // Tail
 
-    dir_         = RIGHT;
-    nextDir_     = RIGHT;
-    maxLength_   = (int)body_.size();
-    growthCount_ = 0;
-    poisonCount_ = 0;
-    gateCount_   = 0;
-    speedEaten_  = false;
+    dir_       = RIGHT;
+    nextDir_   = RIGHT;
+    maxLength_ = (int)body_.size();
 
     board.setCell(body_[0].y, body_[0].x, CELL_HEAD);
     for (int i = 1; i < (int)body_.size(); i++)
@@ -49,16 +37,18 @@ void Snake::init(Board& board) {
 }
 
 // ── setNextDir ───────────────────────────────────────────────────
-void Snake::setNextDir(int d) {
-    // 반대 방향 입력은 무시
-    if (d != oppositeDir(dir_)) nextDir_ = d;
+// 반대 방향 입력 시 false 반환 → 즉시 게임 오버
+bool Snake::setNextDir(const int d) {
+    if (d == oppositeDir(dir_)) return false;
+    nextDir_ = d;
+    return true;
 }
 
 // ── move ─────────────────────────────────────────────────────────
 bool Snake::move(Board& board, Food& food, Poison& poison,
-                 Gate& gate, Speed& speed) {
+                 Gate& gate, Special& special,
+                 int& growthCount, int& poisonCount, int& gateCount) {
     dir_ = nextDir_;
-
     Point newHead = calcNextHead(dir_);
 
     // 경계 밖
@@ -68,59 +58,71 @@ bool Snake::move(Board& board, Food& food, Poison& poison,
 
     const int cell = board.getCell(newHead.y, newHead.x);
 
-    // Immune Wall 또는 일반 Wall 충돌
-    if (cell == CELL_IMMUNE || cell == CELL_WALL) return false;
+    // ── 벽 충돌 ──────────────────────────────────────────────────
+    if (cell == CELL_IMMUNE) return false;  // Immune Wall → 항상 게임 오버
 
-    // 자기 몸 충돌 (tail은 이번 틱 제거 예정이므로 마지막 한 칸 제외)
-    for (int i = 0; i < (int)body_.size() - 1; i++) {
-        if (body_[i].y == newHead.y && body_[i].x == newHead.x)
-            return false;
+    if (cell == CELL_WALL) {
+        if (special.isShieldActive()) {
+            special.consumeShield();
+            return true;    // Shield가 흡수, 이번 틱 움직임 없음
+        }
+        return false;
     }
 
-    // Gate 진입 처리
+    // ── Gate 진입 ────────────────────────────────────────────────
     if (cell == CELL_GATE) {
         int exitDir = dir_;
         const Point exitPos = gate.getExitPos(newHead, dir_, board, exitDir);
 
-        // 진출 위치 유효성 검사
         if (exitPos.y < 0 || exitPos.y >= MAP_SIZE ||
             exitPos.x < 0 || exitPos.x >= MAP_SIZE)
             return false;
 
         const int exitCell = board.getCell(exitPos.y, exitPos.x);
-        if (exitCell == CELL_WALL || exitCell == CELL_IMMUNE)
-            return false;
+        if (exitCell == CELL_WALL || exitCell == CELL_IMMUNE) return false;
 
-        newHead = exitPos;
-        dir_    = exitDir;
+        newHead  = exitPos;
+        dir_     = exitDir;
         nextDir_ = exitDir;
-        gateCount_++;
+        gateCount++;
     }
 
-    // 아이템 소비 판정 (셀 값으로 분기)
+    // ── 자기 몸 충돌 ─────────────────────────────────────────────
+    // 꼬리는 이번 틱에 제거 예정이므로 마지막 한 칸 제외
+    if (!special.isGhostActive()) {
+        for (int i = 0; i < (int)body_.size() - 1; i++) {
+            if (body_[i].y == newHead.y && body_[i].x == newHead.x) {
+                if (special.isShieldActive()) {
+                    special.consumeShield();
+                    return true;
+                }
+                return false;
+            }
+        }
+    }
+
+    // ── 아이템 소비 ──────────────────────────────────────────────
     const int headCell = board.getCell(newHead.y, newHead.x);
     bool grew   = false;
     bool shrank = false;
 
     if (headCell == CELL_GROWTH) {
-        grew = food.consume(newHead.y, newHead.x, board);
-        if (grew) growthCount_++;
+        if (food.consume(newHead.y, newHead.x, board))
+            { grew = true; growthCount++; }
     } else if (headCell == CELL_POISON) {
-        shrank = poison.consume(newHead.y, newHead.x, board);
-        if (shrank) poisonCount_++;
-    } else if (headCell == CELL_SPEED) {
-        if (speed.consume(newHead.y, newHead.x, board))
-            speedEaten_ = true;
+        if (poison.consume(newHead.y, newHead.x, board))
+            { shrank = true; poisonCount++; }
+    } else if (headCell >= CELL_SPEED && headCell <= CELL_REVERSE) {
+        special.consume(newHead.y, newHead.x, board);
     }
 
-    // 꼬리 제거 (Growth가 아닐 때)
+    // ── 꼬리 처리 ────────────────────────────────────────────────
     if (!grew) {
         const Point& tail = body_.back();
         board.setCell(tail.y, tail.x, board.getBase(tail.y, tail.x));
         body_.pop_back();
     }
 
-    // Poison: 추가 꼬리 1칸 더 제거
     if (shrank) {
         if ((int)body_.size() <= 1) return false;
         const Point& tail = body_.back();
@@ -129,37 +131,44 @@ bool Snake::move(Board& board, Food& food, Poison& poison,
         if ((int)body_.size() < 3) return false;
     }
 
-    // 기존 Head → Body
+    // ── 기존 Head → Body, 새 Head 삽입 ──────────────────────────
     if (!body_.empty())
         board.setCell(body_[0].y, body_[0].x, CELL_BODY);
 
-    // 새 Head 삽입
     body_.insert(body_.begin(), newHead);
     board.setCell(newHead.y, newHead.x, CELL_HEAD);
 
     if ((int)body_.size() > maxLength_)
         maxLength_ = (int)body_.size();
 
+    // ── Reverse 처리 ─────────────────────────────────────────────
+    if (special.wasReversed() && (int)body_.size() >= 2) {
+        // 맵에서 Head/Body 전부 지움
+        for (const auto& p : body_)
+            board.setCell(p.y, p.x, board.getBase(p.y, p.x));
+
+        std::reverse(body_.begin(), body_.end());
+        dir_     = oppositeDir(dir_);
+        nextDir_ = dir_;
+
+        // 맵 재기록
+        board.setCell(body_[0].y, body_[0].x, CELL_HEAD);
+        for (int i = 1; i < (int)body_.size(); i++)
+            board.setCell(body_[i].y, body_[i].x, CELL_BODY);
+    }
+
     return true;
 }
 
 // ── getter ───────────────────────────────────────────────────────
-int Snake::getLength() const    { return (int)body_.size(); }
-int Snake::getMaxLength() const { return maxLength_; }
-int Snake::getDir() const       { return dir_; }
-int Snake::getGrowthCount() const { return growthCount_; }
-int Snake::getPoisonCount() const { return poisonCount_; }
-int Snake::getGateCount()   const { return gateCount_; }
+int  Snake::getLength()    const { return (int)body_.size(); }
+int  Snake::getMaxLength() const { return maxLength_; }
+int  Snake::getDir()       const { return dir_; }
 
-bool Snake::wasSpeedEaten() {
-    const bool val = speedEaten_;
-    speedEaten_ = false;
-    return val;
-}
-
-bool Snake::checkMission(const Mission& m) const {
-    return getLength()   >= m.targetLength &&
-           growthCount_  >= m.targetGrowth &&
-           poisonCount_  >= m.targetPoison &&
-           gateCount_    >= m.targetGate;
+bool Snake::checkMission(const Mission& m,
+                         const int growth, const int poison, const int gate) const {
+    return getLength() >= m.targetLength &&
+           growth      >= m.targetGrowth &&
+           poison      >= m.targetPoison &&
+           gate        >= m.targetGate;
 }

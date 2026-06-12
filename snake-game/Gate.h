@@ -20,8 +20,7 @@ public:
     bool isActive() const;
 
     // entryPos(진입 게이트 위치)와 entryDir로 출구 위치/방향 계산
-    // exitDir 에 출구 방향을 기록하고 출구에서 한 칸 나온 좌표를 반환
-    // 유효한 출구가 없으면 active_ = false를 통해 실패를 알림
+    // exitDir에 출구 방향을 기록하고 출구에서 한 칸 나온 좌표를 반환
     Point getExitPos(const Point& entryPos, int entryDir,
                      const Board& board, int& exitDir) const;
 
@@ -30,7 +29,6 @@ private:
     bool  active_;
     int   tick_;
 
-    // 게이트 위치 벽의 '안쪽 방향' 반환 (테두리 Wall 기본 진출 방향)
+    // 테두리 Wall의 안쪽 방향 반환 (내부 Wall은 DOWN 기본값)
     int wallFacingDir(int y, int x) const;
-    int oppositeDir(int d) const;
 };

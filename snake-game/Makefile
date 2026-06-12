@@ -1,15 +1,24 @@
 # Makefile
-# macOS (Apple Silicon) + Homebrew ncurses 빌드
+# macOS(Darwin) / Linux(Ubuntu) 공용 빌드
+# macOS: Homebrew ncurses 경로 자동 감지
+# Linux: 시스템 설치 ncurses 사용
 # 사용법: make        빌드
 #         make clean  오브젝트 및 실행 파일 제거
 
 CXX      = g++
-CXXFLAGS = -std=c++11 -Wall -Wextra \
-           -I$(shell brew --prefix ncurses)/include
-LDFLAGS  = -L$(shell brew --prefix ncurses)/lib -lncursesw
+CXXFLAGS = -std=c++11 -Wall -Wextra
+
+ifeq ($(shell uname), Darwin)
+    CXXFLAGS += -I$(shell brew --prefix ncurses)/include
+    LDFLAGS   = -L$(shell brew --prefix ncurses)/lib -lncursesw
+else
+    LDFLAGS   = -lncursesw
+endif
 
 TARGET = snake
-SRCS   = main.cpp Board.cpp Snake.cpp Food.cpp Poison.cpp Gate.cpp Speed.cpp
+SRCS   = main.cpp Board.cpp Snake.cpp \
+         Item.cpp Food.cpp Poison.cpp \
+         Gate.cpp Special.cpp
 OBJS   = $(SRCS:.cpp=.o)
 
 all: $(TARGET)

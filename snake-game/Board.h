@@ -22,8 +22,10 @@ public:
     void drawScoreBoard(int stage, int elapsedSec,
                         int curLen, int maxLen,
                         int growth, int poison, int gate,
-                        const Mission& m,
-                        int curScore, int highScore) const;
+                        const Mission& m) const;
+
+    // 점수판 하단에 활성 특수 효과 문자열 표시
+    void drawActiveEffects(const std::string& effects) const;
 
     void    setCell(int y, int x, int val);
     int     getCell(int y, int x) const;

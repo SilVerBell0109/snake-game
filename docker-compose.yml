@@ -1,0 +1,5 @@
+services:
+  snake:
+    build: .
+    stdin_open: true
+    tty: true
