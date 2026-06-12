@@ -145,7 +145,7 @@ int main() {
             Gate    gate;
             Special special;
 
-            snake.init(board);
+            snake.init(board, stage);
             gate.spawn(board);
 
             int itemTick    = 0;

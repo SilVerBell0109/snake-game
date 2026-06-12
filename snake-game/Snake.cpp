@@ -21,11 +21,18 @@ Point Snake::calcNextHead(const int d) const {
 }
 
 // ── init ─────────────────────────────────────────────────────────
-void Snake::init(Board& board) {
+void Snake::init(Board& board, const int stage) {
     body_.clear();
-    body_.push_back({10, 12});  // Head
-    body_.push_back({10, 11});
-    body_.push_back({10, 10});  // Tail
+    // Stage 4(index 3): 가로벽이 row 10을 가로막아 좁은 통로 형성 → 위쪽 공간에서 시작
+    if (stage == 3) {
+        body_.push_back({3, 14});  // Head
+        body_.push_back({3, 13});
+        body_.push_back({3, 12});  // Tail
+    } else {
+        body_.push_back({10, 12});  // Head
+        body_.push_back({10, 11});
+        body_.push_back({10, 10});  // Tail
+    }
 
     dir_       = RIGHT;
     nextDir_   = RIGHT;
