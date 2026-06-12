@@ -32,7 +32,4 @@ private:
     bool  active_;
     int   tick_;
     bool  inUse_;  // 이 틱에 뱀이 통과했으면 true, update()에서 소비
-
-    // 테두리 Wall의 안쪽 방향 반환 (내부 Wall은 DOWN 기본값)
-    int wallFacingDir(int y, int x) const;
 };

@@ -16,4 +16,5 @@ WORKDIR /app
 COPY . .
 RUN cd snake-game && make clean && make
 
-CMD ["./snake-game/snake"]
+WORKDIR /app/snake-game
+CMD ["./snake"]

@@ -28,7 +28,6 @@ public:
 
     int  getLength()    const;
     int  getMaxLength() const;
-    int  getDir()       const;
 
 private:
     std::vector<Point> body_;

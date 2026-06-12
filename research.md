@@ -1,259 +1,83 @@
-# 현황 분석 (Research) — 과제 불일치 5개 항목
+# Research — 제출 전 정리 현황 조사
 
-기준 코드: snake-game/ 내 현재 파일
-
----
-
-## 수정 1 — 반대 방향 입력 시 Game Over
-
-### 현재 동작 위치
-
-**Snake.cpp:40-45**
-```cpp
-// 현재: 반대 방향이면 무시하고 true 반환
-bool Snake::setNextDir(const int d) {
-    if (d == oppositeDir(dir_)) return true;  // ← 무시
-    nextDir_ = d;
-    return true;
-}
-```
-
-**main.cpp:187**
-```cpp
-snake.setNextDir(dir);  // 반환값 버림
-```
-
-**Snake.h:21** — 주석: "반대 방향 입력은 무시"
-
-**main.cpp:57** — 시작 화면: `"  반대 방향 입력 → 무시됨"`
-
-**README.md:113** — "반대 방향 입력은 무시됩니다"
-
-### 필요한 변경
-
-`setNextDir()`이 이미 `bool` 반환형이므로:
-- `Snake.cpp:42` → `return true;` → `return false;` (반대 방향 시)
-- `main.cpp:187` → 반환값 체크하여 `failed = true`
-- `Snake.h:21`, `main.cpp:57`, `README.md:113` 문구 수정
+조사 일자: 2026-06-12
 
 ---
 
-## 수정 2 — 미션 기반 스테이지 클리어 조건
+## 항목 A — 루트 snake.cpp
 
-### 현재 클리어 판정 위치
+| 항목 | 현황 |
+|------|------|
+| 파일 경로 | `/snake.cpp` (저장소 루트) |
+| 줄 수 | 798줄 |
+| 구조 | 전역변수 + 함수 기반, 클래스 없음, WASD 전용 |
+| 반대 방향 처리 | 무시(반응 없음) — 과제 요구(게임오버)와 다름 |
+| 아이템 제한 | Growth 3개 + Poison 3개 각각 독립 — 합산 3개 제한 아님 |
+| 미션 시스템 | 없음 — allCollected() 기반 클리어만 존재 |
 
-**main.cpp:262-264**
-```cpp
-// 클리어 조건: +1~+9 전부 수집
-if (food.allCollected())
-    cleared = true;
-```
+**참조 여부 (grep 결과: 0건)**
 
-### MISSIONS 정의 (Board.cpp:11-16)
+| 파일 | 결과 |
+|------|------|
+| README.md | snake.cpp 언급 없음 |
+| Makefile (루트) | `$(MAKE) -C snake-game` 위임 — snake.cpp 빌드 안 함 |
+| Dockerfile | `RUN cd snake-game && make clean && make` — 언급 없음 |
+| .gitignore | `snake`, `snake-game/snake`, `*.o`, `.DS_Store` — snake.cpp 없음 |
+| docker-compose.yml | context/dockerfile 설정뿐 — 언급 없음 |
 
-```cpp
-const Mission MISSIONS[4] = {
-    {  6,  2, 1, 0 },  // Stage 1: B≥6, +≥2, -≥1, G≥0
-    {  7,  3, 1, 1 },  // Stage 2: B≥7, +≥3, -≥1, G≥1
-    {  8,  4, 2, 2 },  // Stage 3: B≥8, +≥4, -≥2, G≥2
-    { 10,  5, 2, 3 },  // Stage 4: B≥10, +≥5, -≥2, G≥3
-};
-```
-
-→ 정의만 있고 **main.cpp에서 전혀 참조하지 않음**
-
-### 판정에 필요한 현재 변수 (main.cpp 이미 존재)
-
-| 미션 조건 | 사용할 변수 | 의미 |
-|---|---|---|
-| B: 목표 길이 | `snake.getMaxLength()` | 이력 최대 길이 (줄어도 유지) |
-| +: Growth 획득 수 | `food.getCollectedCount()` | 수집한 번호 수(최대 9) |
-| -: Poison 획득 수 | `poisonCount` | 이번 스테이지 누적 |
-| G: Gate 사용 수 | `gateCount` | 이번 스테이지 누적 |
-
-→ 4가지 변수 모두 이미 존재. 판정식만 교체하면 됨.
-
-### 충돌 검토
-
-- `food.allCollected()` 제거 후에도 `Food::allCollected()` 함수 자체는 Food.cpp에 남음
-- +1~+9 Growth 번호 UI(`collected[]` 기반)는 drawScoreBoard 파라미터로 독립적으로 전달 → 클리어 조건과 무관하게 유지됨
-- `food.getCollectedCount()`는 기존에 점수 계산(main.cpp:217)에서 이미 사용 중 → 미션 판정에도 재사용 가능
-- Stage 1 미션 `targetGate=0`은 항상 자동 달성(0 이상 = 언제나 true)
+결론: 루트 snake.cpp를 참조하는 파일 없음. 삭제 또는 이동해도 빌드/README/Docker에 영향 없음.
 
 ---
 
-## 수정 3 — Score Board 미션 달성 현황 표시
+## 항목 B — highscore.txt 및 Dockerfile 실행 경로
 
-### 현재 drawScoreBoard 레이아웃 (Board.cpp:259-312)
+### B-1. highscore.txt
 
-```
-row  1: [ Score Board ]
-row  2: Stage  : N
-row  3: Time   : Xs
-row  4: Score  : N     (COLOR_PAIR(4)|A_BOLD, yellow)
-row  5: Best   : N     (COLOR_PAIR(9), cyan)
-row  7: B: N / N       (curLen / maxLen)
-row  8: -: N           (poison)
-row  9: G: N           (gate)
-row 11: [ Growth N/9 ]
-row 12: +1 +2 +3 +4 +5
-row 13: +6 +7 +8 +9
-```
-drawActiveEffects()가 row 15-16에 추가 기록
+| 항목 | 현황 |
+|------|------|
+| 경로 | `snake-game/highscore.txt` |
+| git 추적 여부 | **추적 중** (`git ls-files` 확인) |
+| 현재 내용 | `0` (초기값) |
+| .gitignore 등재 여부 | **없음** |
+| 프로그램 읽기 | `main.cpp:26` — `std::ifstream ifs("highscore.txt")` (cwd 기준 상대경로) |
+| 프로그램 쓰기 | `main.cpp:34` — `std::ofstream ofs("highscore.txt")` (동일 cwd) |
 
-**누락: `+: N` (Growth 획득 수) 없음, Mission 섹션 없음**
+### B-2. Dockerfile 실행 경로 불일치
 
-### 윈도우 공간 분석
-
-`winBoard_ = newwin(MAP_SIZE+2, 30, ...)` → 내부 유효 행: row 1~21 (21행)  
-현재 최대 row 16(effectsstring) 사용 → 5행 여유 있음
-
-### 파라미터 분석
-
-현재 시그니처:
-```cpp
-void Board::drawScoreBoard(int stage, int elapsedSec,
-                           int curLen, int maxLen,
-                           const bool collected[9],
-                           int poison, int gate,
-                           int score, int highScore)
-```
-
-미션 달성 판정에 필요한 모든 정보:
-- `stage` → `MISSIONS[stage]` 접근 가능 (Board.cpp에 MISSIONS 이미 정의됨)
-- `maxLen` → B 조건
-- `collected[9]` → count로 + 조건 계산 가능 (`for(int i=0;i<9;i++) if(collected[i]) cnt++;`)
-- `poison` → - 조건
-- `gate` → G 조건
-
-→ **시그니처 변경 불필요**, 내부에서 `MISSIONS[stage]`와 비교
-
-### 새 레이아웃 (row 20까지 사용)
-
-```
-row  1: [ Score Board ]
-row  2: Stage  : N
-row  3: Time   : Xs
-row  4: Score  : N     (yellow)
-row  5: Best   : N     (cyan)
-row  6: (빈)
-row  7: B: N / N
-row  8: +: N           ← 신규
-row  9: -: N
-row 10: G: N
-row 11: [ Mission ]    ← 신규 섹션
-row 12: B: 6    [v] or [ ]   ← 신규
-row 13: +: 2    [v] or [ ]   ← 신규
-row 14: -: 1    [v] or [ ]   ← 신규
-row 15: G: 0    [v] or [ ]   ← 신규
-row 16: [ Growth N/9 ] ← row 11에서 이동
-row 17: +1 +2 +3 +4 +5 ← row 12에서 이동
-row 18: +6 +7 +8 +9    ← row 13에서 이동
-row 19: [ Effects ]    ← row 15에서 이동
-row 20: effects string ← row 16에서 이동
-```
-
-→ drawActiveEffects()의 row 번호도 15→19, 16→20으로 수정 필요
+| 항목 | 현황 |
+|------|------|
+| WORKDIR | `/app` |
+| 빌드 | `RUN cd snake-game && make clean && make` |
+| CMD | `CMD ["./snake-game/snake"]` |
+| 실행 시 cwd | `/app` (WORKDIR 유지) |
+| 실제 highscore.txt 경로 | `/app/highscore.txt` |
+| 의도한 경로 | `snake-game/highscore.txt` → `/app/snake-game/highscore.txt` |
+| **불일치** | CMD가 `/app`에서 실행되므로 highscore가 `/app/highscore.txt`에 생성됨 |
 
 ---
 
-## 수정 4 — Growth + Poison 합산 3개 제한
+## 항목 C — 데드 코드
 
-### 현재 각자 독립 제한
+| 함수 | 정의 | 선언 | 전체 소스 grep 호출 건수 |
+|------|------|------|--------------------------|
+| `Gate::wallFacingDir()` | Gate.cpp:16 | Gate.h:37 | **0건** |
+| `Snake::getDir()` | Snake.cpp:166 | Snake.h:31 | **0건** |
 
-**Food.cpp:14**
-```cpp
-void Food::spawn(Board& board) {
-    if ((int)items_.size() >= ITEM_LIMIT) return;  // Food 자체 3개 제한
-    ...
-}
-```
-
-**Item.cpp:11** (Poison이 사용하는 spawnItem)
-```cpp
-void ItemBase::spawnItem(..., int maxCount, ...) {
-    if ((int)items_.size() >= maxCount) return;  // 각자 3개 제한
-    ...
-}
-```
-
-**main.cpp:239-244**
-```cpp
-if (itemTick >= 15) {
-    food.spawn(board);
-    poison.spawn(board);
-    itemTick = 0;
-}
-```
-
-→ 현재 최대 Food 3개 + Poison 3개 = **동시 6개 가능**
-
-### 구현 방식 비교
-
-**방법 A (main.cpp 외부 체크):**  
-main.cpp 스폰 호출 전에 합산 조건 체크. Food/Poison 내부 코드 변경 없음.
-
-```cpp
-if (itemTick >= 15) {
-    if (food.getCount() + poison.getCount() < ITEM_LIMIT)
-        food.spawn(board);
-    if (food.getCount() + poison.getCount() < ITEM_LIMIT)
-        poison.spawn(board);
-    itemTick = 0;
-}
-```
-
-- 장점: 변경 최소, Food/Poison 내부 ITEM_LIMIT 체크는 방어 코드로 유지
-- 단점: Food 스폰 후 카운트가 올라가므로 두 번째 `food.getCount()`가 갱신된 값 반환 → 자연스러운 흐름
-
-**방법 B (spawn() 파라미터 추가):**  
-`food.spawn(board, externalCount)` 식으로 외부 카운터 전달. 클래스 인터페이스 변경 수반.
-
-→ 방법 A 채택. 변경 최소화.
+grep 범위: `snake-game/*.cpp`, `snake-game/*.h` 전체.  
+멤버 함수라 `-Wall -Wextra`로는 경고 미발생.
 
 ---
 
-## 수정 5 — Makefile macOS 링크 보완
+## 항목 D — 미션 설계 확인 (코드 변경 없음, 보고만)
 
-### 현재 Darwin 브랜치 (Makefile:11-13)
+### D-1. Mission B 판정: 최대 길이(getMaxLength) 기준
 
-```makefile
-ifeq ($(shell uname), Darwin)
-    CXXFLAGS += -I$(shell brew --prefix ncurses)/include
-    LDFLAGS   = -L$(shell brew --prefix ncurses)/lib -lncursesw
-```
+- `main.cpp:266` — `snake.getMaxLength() >= m.targetLength`
+- `Snake::maxLength_` = `body_.size()` 역대 최댓값 (Poison 섭취 후 감소해도 유지)
+- 동작: Poison으로 길이가 줄어도 한 번 B 조건 충족 시 이후에도 [v] 유지
 
-### 문제
+### D-2. Stage 4 미션 {10, 5, 2, 3} — B/+ 조건 중복
 
-`brew --prefix ncurses`가 실패(ncurses 미설치)하면 빈 문자열 반환:
-- `-I/include` → 헤더 못 찾음
-- `-L/lib -lncursesw` → 라이브러리 못 찾음
-
-현재 환경 확인:
-```
-$ brew --prefix ncurses 2>/dev/null
-/opt/homebrew/opt/ncurses
-$ ls /opt/homebrew/opt/ncurses/lib/libncursesw*   ← 존재함 (문제 없음)
-```
-
-→ 현재 환경에서는 동작하지만, ncurses 미설치 환경 또는 경로가 다른 환경에서 실패.
-
-### 수정 방향
-
-`brew --prefix ncurses 2>/dev/null` 결과가 비어 있으면 macOS 기본 ncurses(-lncurses) 사용:
-
-```makefile
-ifeq ($(shell uname), Darwin)
-    BREW_NCURSES := $(shell brew --prefix ncurses 2>/dev/null)
-    ifneq ($(BREW_NCURSES),)
-        CXXFLAGS += -I$(BREW_NCURSES)/include
-        LDFLAGS   = -L$(BREW_NCURSES)/lib -lncursesw
-    else
-        LDFLAGS   = -lncurses
-    endif
-else
-    LDFLAGS   = -lncursesw
-endif
-```
-
-Docker: `uname` = Linux → else 브랜치(`-lncursesw`) → 변경 없음
+- `Board.cpp:15` — `{ 10, 5, 2, 3 }`
+- 초기 길이 3, Growth 1개당 +1 → maxLength 10 달성에 Growth 7개 필요
+- +≥5 목표는 B≥10 달성 전에 항상 먼저 충족됨 → 사실상 B 조건이 + 조건을 포함

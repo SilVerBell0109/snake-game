@@ -1,6 +1,133 @@
-# 수정 계획 (Plan) — 과제 불일치 5개 항목
+# 수정 계획 (Plan) — 과제 불일치 5개 항목 + 제출 전 정리
 
 승인 후 구현. 체크되지 않은 항목은 미구현.
+
+---
+
+## 제출 전 정리 (항목 A~D) — 승인 대기
+
+---
+
+### 항목 A — 루트 snake.cpp 처리
+
+**배경:** 루트에 구버전 798줄 snake.cpp 존재. 클래스 없음, 동작 다름, 참조하는 파일 0건.
+
+**두 가지 옵션:**
+
+| | 옵션 1: 완전 삭제 | 옵션 2: legacy/ 디렉토리로 이동 |
+|---|---|---|
+| 방법 | `git rm snake.cpp` | `git mv snake.cpp legacy/snake.cpp` |
+| 제출 ZIP | snake.cpp 없음 | legacy/snake.cpp 포함 |
+| 채점자 혼란 | 없음 | legacy/ 폴더가 있으나 명확히 분리됨 |
+| 기록 보존 | git 히스토리에 남음 | 파일 자체도 남음 |
+| 추천 | **권장** — 채점 혼란 원천 차단 | 기록 보존이 중요할 때 |
+
+**추천: 옵션 1 (완전 삭제).** git 히스토리로 복구 가능하고, 채점자에게 정상 버전만 노출됨.
+
+→ 선택해줘: **옵션 1 (삭제)** / **옵션 2 (이동)** / **유지**
+
+**영향 범위:** README, Makefile, Dockerfile, .gitignore — 모두 영향 없음 (참조 0건 확인).
+
+**체크리스트:**
+- [x] git rm 실행 (옵션 1: 완전 삭제)
+- [x] 빌드 확인 (make from root) — 경고 없음
+- [ ] docker build 확인
+
+---
+
+### 항목 B — highscore.txt git 제외 + Dockerfile cwd 정리
+
+**B-1. highscore.txt .gitignore 추가**
+
+현재 `.gitignore`에 없어 `snake-game/highscore.txt`(값: 0)가 추적 중.  
+실행 산출물이므로 추적 제외가 적절.
+
+처리:
+1. `git rm --cached snake-game/highscore.txt` (파일은 로컬에 유지)
+2. `.gitignore`에 `snake-game/highscore.txt` 추가
+
+영향: 이후 게임 실행 시 생성되는 highscore.txt는 더 이상 커밋되지 않음.
+
+**B-2. Dockerfile 실행 경로 정리**
+
+문제: `CMD ["./snake-game/snake"]`가 WORKDIR `/app`에서 실행 → highscore.txt가 `/app/highscore.txt`에 저장됨 (의도한 `snake-game/` 아님).
+
+**두 가지 옵션:**
+
+| | 옵션 B-i: WORKDIR 변경 | 옵션 B-ii: CMD에서 cd |
+|---|---|---|
+| 변경 내용 | 빌드 후 `WORKDIR /app/snake-game` 추가, `CMD ["./snake"]` | `CMD ["sh", "-c", "cd /app/snake-game && ./snake"]` |
+| highscore.txt 경로 | `/app/snake-game/highscore.txt` ✓ | `/app/snake-game/highscore.txt` ✓ |
+| 빌드 단계 영향 | 없음 (빌드는 `RUN cd snake-game && make`) | 없음 |
+| 코드 변경량 | Dockerfile 2줄 수정 | Dockerfile 1줄 수정 |
+| 추천 | **권장** — Dockerfile 관용구에 맞음 | 간단하지만 덜 명확 |
+
+**추천: 옵션 B-i (WORKDIR 변경).** 더 표준적이고 의도가 명확함.
+
+→ 선택해줘: **옵션 B-i** / **옵션 B-ii**
+
+**체크리스트:**
+- [x] git rm --cached snake-game/highscore.txt
+- [x] .gitignore에 snake-game/highscore.txt 추가
+- [x] Dockerfile 수정 (옵션 B-i: WORKDIR /app/snake-game + CMD ["./snake"])
+- [ ] docker build 성공 확인
+
+---
+
+### 항목 C — 데드 코드 처리
+
+확인된 미호출 함수:
+
+| 함수 | 위치 | 내용 |
+|------|------|------|
+| `Gate::wallFacingDir()` | Gate.cpp:16, Gate.h:37 | 테두리 Wall의 안쪽 방향 반환 |
+| `Snake::getDir()` | Snake.cpp:166, Snake.h:31 | `dir_` 반환 |
+
+전체 소스 grep: 두 함수 모두 호출 0건 확인.
+
+**두 가지 옵션:**
+
+| | 옵션 1: 삭제 | 옵션 2: 유지 |
+|---|---|---|
+| 방법 | `.cpp` 정의 + `.h` 선언 제거 | 현 상태 유지 |
+| 코드 | 깔끔해짐 | 변경 없음 |
+| 위험 | 혹시 외부 테스트가 호출하면 링크 에러 (가능성 낮음) | 데드 코드 잔존 |
+| 경고 | `-Wall -Wextra`로 경고 없음 (멤버함수라) | 동일 |
+| 추천 | **권장** — 채점자 시점에 불필요한 코드 없음이 깔끔 | 보수적으로 유지하려면 |
+
+**추천: 옵션 1 (삭제).** 과제 제출이므로 깔끔한 코드가 유리.
+
+→ 선택해줘: **옵션 1 (삭제)** / **옵션 2 (유지)**
+
+**체크리스트:**
+- [x] Gate.cpp `wallFacingDir()` 정의 삭제
+- [x] Gate.h 선언 삭제
+- [x] Snake.cpp `getDir()` 정의 삭제
+- [x] Snake.h 선언 삭제
+- [x] 빌드 확인 (make) — 경고 없음
+
+---
+
+### 항목 D — 미션 설계 확인 (코드 변경 없음, 보고만)
+
+**D-1. Mission B 판정: 최대 길이 기준 (main.cpp:266)**
+
+현재: `snake.getMaxLength() >= m.targetLength`  
+동작: Poison으로 길이가 줄어도 한 번 달성하면 [v] 유지됨.
+
+"현재 길이" 기준으로 바꿀 경우 영향:
+- `snake.getLength() >= m.targetLength`로 교체
+- Poison 섭취 후 B 조건이 다시 [ ]로 돌아갈 수 있음
+- 클리어 직전에 Poison을 먹으면 클리어 조건이 깨지는 위험 추가
+- 플레이어 입장에서 더 불리하고 불명확한 조건이 됨
+- **교수 확인 필요: 현재(최대 길이) 기준이 일반적인 설계이므로 이대로가 적절할 가능성 높음**
+
+**D-2. Stage 4 미션 {10, 5, 2, 3} — B/+ 중복**
+
+- maxLength ≥ 10 달성에는 Growth 7개 섭취 필요 (초기 길이 3)
+- Growth ≥ 5 조건은 maxLength ≥ 10 달성 시 항상 이미 충족
+- 즉 + 조건이 B 조건에 흡수됨 → + 조건이 독립적인 제약을 추가하지 못함
+- **교수 확인 필요: 의도된 설계(B가 어려워서 + 선행 달성이 자연스럽도록)인지, 실수인지 불분명**
 
 ---
 

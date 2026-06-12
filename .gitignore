@@ -2,3 +2,4 @@
 snake
 snake-game/snake
 *.o
+snake-game/highscore.txt

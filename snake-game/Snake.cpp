@@ -163,5 +163,4 @@ bool Snake::move(Board& board, Food& food, Poison& poison,
 // ── getter ───────────────────────────────────────────────────────
 int  Snake::getLength()    const { return (int)body_.size(); }
 int  Snake::getMaxLength() const { return maxLength_; }
-int  Snake::getDir()       const { return dir_; }
 

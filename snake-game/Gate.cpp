@@ -13,14 +13,6 @@ Gate::Gate() : active_(false), tick_(0), inUse_(false) {
     posB_ = {0, 0};
 }
 
-int Gate::wallFacingDir(const int y, const int x) const {
-    if (y == 0)            return DOWN;
-    if (y == MAP_SIZE - 1) return UP;
-    if (x == 0)            return RIGHT;
-    if (x == MAP_SIZE - 1) return LEFT;
-    return DOWN;
-}
-
 void Gate::spawn(Board& board) {
     if (active_) {
         board.setCell(posA_.y, posA_.x, board.getBase(posA_.y, posA_.x));
