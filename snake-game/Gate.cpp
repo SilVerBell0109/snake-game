@@ -8,7 +8,7 @@
 #include <cstdlib>
 #include <vector>
 
-Gate::Gate() : active_(false), tick_(0) {
+Gate::Gate() : active_(false), tick_(0), inUse_(false) {
     posA_ = {0, 0};
     posB_ = {0, 0};
 }
@@ -51,6 +51,7 @@ void Gate::spawn(Board& board) {
 
 void Gate::update(Board& board) {
     if (!active_) return;
+    if (inUse_) { inUse_ = false; return; }  // 이 틱에 통과 → 수명 동결
     tick_--;
     if (tick_ <= 0) {
         board.setCell(posA_.y, posA_.x, board.getBase(posA_.y, posA_.x));
@@ -64,7 +65,8 @@ bool Gate::isActive() const {
 }
 
 Point Gate::getExitPos(const Point& entryPos, const int entryDir,
-                       const Board& board, int& exitDir) const {
+                       const Board& board, int& exitDir) {
+    inUse_ = true;
     const Point* exit = (posA_.y == entryPos.y && posA_.x == entryPos.x)
                         ? &posB_ : &posA_;
 
