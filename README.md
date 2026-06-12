@@ -194,23 +194,28 @@ Makefile이 `uname` 으로 OS를 자동 감지하여 ncurses 경로를 분기합
 
 ---
 
-## Docker 실행 (가산점)
+## Docker로 실행 (Ubuntu 22.04 — 권장, 협업용)
 
-Ubuntu 22.04 컨테이너 내에서 빌드 및 실행합니다.
-
+### 처음 빌드 후 실행
 ```bash
-# 프로젝트 루트(Dockerfile이 있는 위치)에서 실행
-docker compose up --build
+git clone https://github.com/SilVerBell0109/snake-game.git
+cd snake-game
+docker compose build
+docker compose run --rm snake
 ```
 
-또는 직접 빌드:
-
+### 재실행 (빌드 없이)
 ```bash
-docker build -t snake-game .
-docker run -it snake-game
+docker compose run --rm snake
 ```
 
-> `stdin_open: true` + `tty: true` 설정으로 터미널 입력(방향키)이 컨테이너 내부로 전달됩니다.
+### 소스 수정 후 재빌드 + 실행
+```bash
+docker compose build && docker compose run --rm snake
+```
+
+> `docker compose up` 은 ncurses 화면 출력이 안 됨  
+> 반드시 `docker compose run --rm snake` 로 실행할 것
 
 ---
 
