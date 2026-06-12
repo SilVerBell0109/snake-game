@@ -1,2 +1,4 @@
 .DS_Store
 snake
+snake-game/snake
+*.o
