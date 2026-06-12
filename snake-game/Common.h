@@ -54,6 +54,13 @@ struct Item {
     int num;   // growth number 1-9; 0 for non-growth items
 };
 
+struct Mission {
+    int targetLength;
+    int targetGrowth;
+    int targetPoison;
+    int targetGate;
+};
+
 // ── 반대 방향 헬퍼 ───────────────────────────────────────────────
 inline int oppositeDir(const int d) {
     if (d == UP)    return DOWN;
@@ -61,4 +68,6 @@ inline int oppositeDir(const int d) {
     if (d == LEFT)  return RIGHT;
     return LEFT;
 }
+
+extern const Mission MISSIONS[4];
 

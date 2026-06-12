@@ -261,8 +261,12 @@ int main() {
                                      totalScore, highScore);
                 board.drawActiveEffects(special.getActiveEffectStr());
 
-                // ── 클리어 조건: +1~+9 전부 수집 ──
-                if (food.allCollected())
+                // ── 클리어 조건: 미션 B/+/-/G 전부 달성 ──
+                const Mission& m = MISSIONS[stage];
+                if (snake.getMaxLength()     >= m.targetLength &&
+                    food.getCollectedCount() >= m.targetGrowth &&
+                    poisonCount              >= m.targetPoison &&
+                    gateCount                >= m.targetGate)
                     cleared = true;
             }
 

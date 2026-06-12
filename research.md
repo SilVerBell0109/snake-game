@@ -1,83 +1,149 @@
-# Research — 제출 전 정리 현황 조사
+# Research — Mission System 복원 현황
 
-조사 일자: 2026-06-12
-
----
-
-## 항목 A — 루트 snake.cpp
-
-| 항목 | 현황 |
-|------|------|
-| 파일 경로 | `/snake.cpp` (저장소 루트) |
-| 줄 수 | 798줄 |
-| 구조 | 전역변수 + 함수 기반, 클래스 없음, WASD 전용 |
-| 반대 방향 처리 | 무시(반응 없음) — 과제 요구(게임오버)와 다름 |
-| 아이템 제한 | Growth 3개 + Poison 3개 각각 독립 — 합산 3개 제한 아님 |
-| 미션 시스템 | 없음 — allCollected() 기반 클리어만 존재 |
-
-**참조 여부 (grep 결과: 0건)**
-
-| 파일 | 결과 |
-|------|------|
-| README.md | snake.cpp 언급 없음 |
-| Makefile (루트) | `$(MAKE) -C snake-game` 위임 — snake.cpp 빌드 안 함 |
-| Dockerfile | `RUN cd snake-game && make clean && make` — 언급 없음 |
-| .gitignore | `snake`, `snake-game/snake`, `*.o`, `.DS_Store` — snake.cpp 없음 |
-| docker-compose.yml | context/dockerfile 설정뿐 — 언급 없음 |
-
-결론: 루트 snake.cpp를 참조하는 파일 없음. 삭제 또는 이동해도 빌드/README/Docker에 영향 없음.
+작성일: 2026-06-12
 
 ---
 
-## 항목 B — highscore.txt 및 Dockerfile 실행 경로
+## 1. 참조 커밋
 
-### B-1. highscore.txt
-
-| 항목 | 현황 |
-|------|------|
-| 경로 | `snake-game/highscore.txt` |
-| git 추적 여부 | **추적 중** (`git ls-files` 확인) |
-| 현재 내용 | `0` (초기값) |
-| .gitignore 등재 여부 | **없음** |
-| 프로그램 읽기 | `main.cpp:26` — `std::ifstream ifs("highscore.txt")` (cwd 기준 상대경로) |
-| 프로그램 쓰기 | `main.cpp:34` — `std::ofstream ofs("highscore.txt")` (동일 cwd) |
-
-### B-2. Dockerfile 실행 경로 불일치
-
-| 항목 | 현황 |
-|------|------|
-| WORKDIR | `/app` |
-| 빌드 | `RUN cd snake-game && make clean && make` |
-| CMD | `CMD ["./snake-game/snake"]` |
-| 실행 시 cwd | `/app` (WORKDIR 유지) |
-| 실제 highscore.txt 경로 | `/app/highscore.txt` |
-| 의도한 경로 | `snake-game/highscore.txt` → `/app/snake-game/highscore.txt` |
-| **불일치** | CMD가 `/app`에서 실행되므로 highscore가 `/app/highscore.txt`에 생성됨 |
+| 커밋 | 설명 |
+|---|---|
+| `8b8ecb1` | 정상 동작 버전 (미션 시스템 완비) |
+| `fd8db49` | Mission 패널·struct 전부 제거 (회귀 시작) |
+| `b11ab4c` | Poison 즉사로 변경 |
+| `9ce7fad` | 클리어 조건 `food.allCollected()`로 단순화 |
+| `6b5d5e1` | HEAD — README 최신화 (과제 위반 상태 반영) |
 
 ---
 
-## 항목 C — 데드 코드
+## 2. 현재 상태 vs 8b8ecb1 상태 비교
 
-| 함수 | 정의 | 선언 | 전체 소스 grep 호출 건수 |
-|------|------|------|--------------------------|
-| `Gate::wallFacingDir()` | Gate.cpp:16 | Gate.h:37 | **0건** |
-| `Snake::getDir()` | Snake.cpp:166 | Snake.h:31 | **0건** |
+### 2-1. Common.h
 
-grep 범위: `snake-game/*.cpp`, `snake-game/*.h` 전체.  
-멤버 함수라 `-Wall -Wextra`로는 경고 미발생.
+| | 현재 (HEAD) | 8b8ecb1 |
+|---|---|---|
+| `struct Mission` | **없음** | `{ targetLength, targetGrowth, targetPoison, targetGate }` |
+| `extern const Mission MISSIONS[4];` | **없음** | 있음 |
+| 나머지 | 동일 | — |
+
+### 2-2. Board.cpp
+
+| | 현재 (HEAD) | 8b8ecb1 |
+|---|---|---|
+| MISSIONS[4] 정의 | **없음** | `{6,2,1,0}, {7,3,1,1}, {8,4,2,2}, {10,5,2,3}` |
+| drawScoreBoard 상단 | row 1–10 동일 | row 1–10 동일 |
+| `[ Mission ]` 블록 | **없음** (행 12부터 Growth) | row 12–16 (Mission 4줄) |
+| `[ Growth N/9 ]` 헤더 | **row 12** | row 17 |
+| Growth 체크박스 | **row 13 / 14** | row 18 / 19 |
+| `[ Effects ]` | row 20 / 21 | row 20 / 21 동일 |
+
+현재 drawScoreBoard 내 변경 필요 범위: 행 번호 3개 + Mission 블록 삽입 (총 9줄 변경).
+
+### 2-3. Snake.cpp — Poison 처리 (move 함수 내부)
+
+**현재 (위반):**
+```cpp
+bool grew = false;
+// shrank 없음
+
+} else if (headCell == CELL_POISON) {
+    if (poison.consume(newHead.y, newHead.x, board))
+        { poisonCount++; return false; }   // 즉사
+}
+
+if (!grew) {
+    const Point& tail = body_.back();
+    board.setCell(tail.y, tail.x, board.getBase(tail.y, tail.x));
+    body_.pop_back();
+}
+// shrank 블록 없음
+```
+
+**8b8ecb1 (정상):**
+```cpp
+bool grew   = false;
+bool shrank = false;
+
+} else if (headCell == CELL_POISON) {
+    if (poison.consume(newHead.y, newHead.x, board))
+        { shrank = true; poisonCount++; }   // 즉사 아님
+}
+
+if (!grew) {
+    const Point& tail = body_.back();
+    board.setCell(tail.y, tail.x, board.getBase(tail.y, tail.x));
+    body_.pop_back();
+}
+
+if (shrank) {
+    if ((int)body_.size() <= 1) return false;
+    const Point& tail = body_.back();
+    board.setCell(tail.y, tail.x, board.getBase(tail.y, tail.x));
+    body_.pop_back();
+    if ((int)body_.size() < 3) return false;
+}
+```
+
+변경 포인트 3개: `bool shrank` 추가, Poison 분기 `return false` 제거, `if (shrank)` 블록 복원.
+
+### 2-4. main.cpp — 클리어 조건
+
+**현재 (위반):**
+```cpp
+// ── 클리어 조건: +1~+9 전부 수집 ──
+if (food.allCollected())
+    cleared = true;
+```
+
+**8b8ecb1 (정상):**
+```cpp
+const Mission& m = MISSIONS[stage];
+if (snake.getMaxLength()     >= m.targetLength &&
+    food.getCollectedCount() >= m.targetGrowth &&
+    poisonCount              >= m.targetPoison &&
+    gateCount                >= m.targetGate)
+    cleared = true;
+```
+
+나머지 main.cpp (점수 계산, 스테이지 흐름) 변경 없음.
 
 ---
 
-## 항목 D — 미션 설계 확인 (코드 변경 없음, 보고만)
+## 3. README 현황
 
-### D-1. Mission B 판정: 최대 길이(getMaxLength) 기준
+HEAD README는 2026-06-12 과제 위반 상태로 재작성됨. 복원 후 다음 섹션 수정 필요:
 
-- `main.cpp:266` — `snake.getMaxLength() >= m.targetLength`
-- `Snake::maxLength_` = `body_.size()` 역대 최댓값 (Poison 섭취 후 감소해도 유지)
-- 동작: Poison으로 길이가 줄어도 한 번 B 조건 충족 시 이후에도 [v] 유지
+| 섹션 | 현재 (위반) | 복원 목표 |
+|---|---|---|
+| § 2 ASCII | `[ Mission ]` 없음 | Mission 4줄 복원 |
+| § 6-4 클리어 조건 | "+1~+9 전부 수집" | 미션 B/+/-/G 4조건 AND |
+| § 7-2 Poison | "즉시 게임 오버" | "길이 -1, 3 미만 시 게임 오버" |
+| § 9-1 점수 체계 | Poison -5 행 없음 | -5점 행 복원 |
+| § 10 스테이지별 | 미션 목표 없음 | 각 스테이지 B/+/-/G 목표 복원 |
 
-### D-2. Stage 4 미션 {10, 5, 2, 3} — B/+ 조건 중복
+---
 
-- `Board.cpp:15` — `{ 10, 5, 2, 3 }`
-- 초기 길이 3, Growth 1개당 +1 → maxLength 10 달성에 Growth 7개 필요
-- +≥5 목표는 B≥10 달성 전에 항상 먼저 충족됨 → 사실상 B 조건이 + 조건을 포함
+## 4. D-1 분석 — B 판정 기준 (maxLen vs curLen)
+
+8b8ecb1 기준: `snake.getMaxLength() >= m.targetLength`
+
+Poison으로 현재 길이가 줄어도 maxLen은 감소하지 않는다. 한 번 targetLength에 도달하면 이후 유지됨.
+
+"현재 길이" 기준으로 바꿀 경우: Poison을 마지막에 채우면 길이가 targetLength 미만으로 떨어져 클리어 취소 가능 → 혼란 유발. 변경 불필요.
+
+→ **8b8ecb1 그대로 maxLen 기준 유지.**
+
+---
+
+## 5. D-2 분석 — 스테이지별 달성 가능성
+
+시작 길이: 3. Growth +1/Poison -1(현재 길이 기준), maxLen은 최고치 보존.
+
+| Stage | B | + | - | G | 가능 | 안전 최소 경로 |
+|---|---|---|---|---|---|---|
+| 1 | ≥6 | ≥2 | ≥1 | ≥0 | ✅ | Growth 3개→길이6, Poison 1개→길이5(maxLen=6) |
+| 2 | ≥7 | ≥3 | ≥1 | ≥1 | ✅ | Growth 4개→길이7, Poison 1개, Gate 1회 |
+| 3 | ≥8 | ≥4 | ≥2 | ≥2 | ✅ | Growth 5개→길이8, Poison 2개→길이6, Gate 2회 |
+| 4 | ≥10 | ≥5 | ≥2 | ≥3 | ✅ | Growth 7개→길이10, Poison 2개→길이8, Gate 3회 |
+
+모든 스테이지 달성 가능. Poison은 targetLength 도달 후 먹어야 안전(길이 3 미만 방지).

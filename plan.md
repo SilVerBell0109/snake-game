@@ -1,303 +1,90 @@
-# 수정 계획 (Plan) — 과제 불일치 5개 항목 + 제출 전 정리
+# Plan — Mission System 복원 (과제 원문 준수)
 
 승인 후 구현. 체크되지 않은 항목은 미구현.
 
 ---
 
-## 제출 전 정리 (항목 A~D) — 승인 대기
+## 배경
+
+커밋 `fd8db49` ~ `6b5d5e1` 사이에 Mission 시스템이 단계적으로 제거됨.
+과제 원문 Game Rule #6 (B/+/-/G 미션 달성 시 스테이지 클리어) 위반.
+참조 복원 커밋: `8b8ecb1`.
 
 ---
 
-### 항목 A — 루트 snake.cpp 처리
+## 복원 방식 선택
 
-**배경:** 루트에 구버전 798줄 snake.cpp 존재. 클래스 없음, 동작 다름, 참조하는 파일 0건.
+### 옵션 A — `git checkout 8b8ecb1 -- <file>` 방식
+4개 파일을 커밋 시점 그대로 복원. 이후 회귀한 커밋에서 추가된 특수 아이템 코드가 있을 경우 덮어씌워진다.
 
-**두 가지 옵션:**
+**확인:** 8b8ecb1 이후 커밋에서 4개 파일에 기능 추가가 있었는지 점검 필요.
+```
+git log 8b8ecb1..HEAD --oneline -- snake-game/Snake.cpp snake-game/main.cpp snake-game/Board.cpp snake-game/Common.h
+```
+→ 이 구간의 변경은 Mission 제거/Poison 즉사/클리어 단순화뿐. 특수 아이템 등 다른 기능 추가 없음.
+→ 옵션 A 사용 가능하나, Common.h/Board.cpp는 완전 덮어쓰기보다 **수술적 편집이 더 안전**.
 
-| | 옵션 1: 완전 삭제 | 옵션 2: legacy/ 디렉토리로 이동 |
-|---|---|---|
-| 방법 | `git rm snake.cpp` | `git mv snake.cpp legacy/snake.cpp` |
-| 제출 ZIP | snake.cpp 없음 | legacy/snake.cpp 포함 |
-| 채점자 혼란 | 없음 | legacy/ 폴더가 있으나 명확히 분리됨 |
-| 기록 보존 | git 히스토리에 남음 | 파일 자체도 남음 |
-| 추천 | **권장** — 채점 혼란 원천 차단 | 기록 보존이 중요할 때 |
-
-**추천: 옵션 1 (완전 삭제).** git 히스토리로 복구 가능하고, 채점자에게 정상 버전만 노출됨.
-
-→ 선택해줘: **옵션 1 (삭제)** / **옵션 2 (이동)** / **유지**
-
-**영향 범위:** README, Makefile, Dockerfile, .gitignore — 모두 영향 없음 (참조 0건 확인).
-
-**체크리스트:**
-- [x] git rm 실행 (옵션 1: 완전 삭제)
-- [x] 빌드 확인 (make from root) — 경고 없음
-- [ ] docker build 확인
+### 옵션 B — 수술적 편집 방식 (선택) ✅
+각 파일에서 회귀된 hunk만 복원. 비관련 코드 건드리지 않음.
+- 변경량이 적고 (4개 파일, 파일당 1~2 hunk)
+- 의도치 않은 사이드 이펙트 없음
 
 ---
 
-### 항목 B — highscore.txt git 제외 + Dockerfile cwd 정리
+## 수정 파일 및 스니펫
 
-**B-1. highscore.txt .gitignore 추가**
+### Step 1 — Common.h: struct Mission + extern 선언 추가
 
-현재 `.gitignore`에 없어 `snake-game/highscore.txt`(값: 0)가 추적 중.  
-실행 산출물이므로 추적 제외가 적절.
+**위치:** `snake-game/Common.h`  
+**삽입 위치:** `struct Item { ... };` 블록 바로 뒤
 
-처리:
-1. `git rm --cached snake-game/highscore.txt` (파일은 로컬에 유지)
-2. `.gitignore`에 `snake-game/highscore.txt` 추가
-
-영향: 이후 게임 실행 시 생성되는 highscore.txt는 더 이상 커밋되지 않음.
-
-**B-2. Dockerfile 실행 경로 정리**
-
-문제: `CMD ["./snake-game/snake"]`가 WORKDIR `/app`에서 실행 → highscore.txt가 `/app/highscore.txt`에 저장됨 (의도한 `snake-game/` 아님).
-
-**두 가지 옵션:**
-
-| | 옵션 B-i: WORKDIR 변경 | 옵션 B-ii: CMD에서 cd |
-|---|---|---|
-| 변경 내용 | 빌드 후 `WORKDIR /app/snake-game` 추가, `CMD ["./snake"]` | `CMD ["sh", "-c", "cd /app/snake-game && ./snake"]` |
-| highscore.txt 경로 | `/app/snake-game/highscore.txt` ✓ | `/app/snake-game/highscore.txt` ✓ |
-| 빌드 단계 영향 | 없음 (빌드는 `RUN cd snake-game && make`) | 없음 |
-| 코드 변경량 | Dockerfile 2줄 수정 | Dockerfile 1줄 수정 |
-| 추천 | **권장** — Dockerfile 관용구에 맞음 | 간단하지만 덜 명확 |
-
-**추천: 옵션 B-i (WORKDIR 변경).** 더 표준적이고 의도가 명확함.
-
-→ 선택해줘: **옵션 B-i** / **옵션 B-ii**
-
-**체크리스트:**
-- [x] git rm --cached snake-game/highscore.txt
-- [x] .gitignore에 snake-game/highscore.txt 추가
-- [x] Dockerfile 수정 (옵션 B-i: WORKDIR /app/snake-game + CMD ["./snake"])
-- [ ] docker build 성공 확인
-
----
-
-### 항목 C — 데드 코드 처리
-
-확인된 미호출 함수:
-
-| 함수 | 위치 | 내용 |
-|------|------|------|
-| `Gate::wallFacingDir()` | Gate.cpp:16, Gate.h:37 | 테두리 Wall의 안쪽 방향 반환 |
-| `Snake::getDir()` | Snake.cpp:166, Snake.h:31 | `dir_` 반환 |
-
-전체 소스 grep: 두 함수 모두 호출 0건 확인.
-
-**두 가지 옵션:**
-
-| | 옵션 1: 삭제 | 옵션 2: 유지 |
-|---|---|---|
-| 방법 | `.cpp` 정의 + `.h` 선언 제거 | 현 상태 유지 |
-| 코드 | 깔끔해짐 | 변경 없음 |
-| 위험 | 혹시 외부 테스트가 호출하면 링크 에러 (가능성 낮음) | 데드 코드 잔존 |
-| 경고 | `-Wall -Wextra`로 경고 없음 (멤버함수라) | 동일 |
-| 추천 | **권장** — 채점자 시점에 불필요한 코드 없음이 깔끔 | 보수적으로 유지하려면 |
-
-**추천: 옵션 1 (삭제).** 과제 제출이므로 깔끔한 코드가 유리.
-
-→ 선택해줘: **옵션 1 (삭제)** / **옵션 2 (유지)**
-
-**체크리스트:**
-- [x] Gate.cpp `wallFacingDir()` 정의 삭제
-- [x] Gate.h 선언 삭제
-- [x] Snake.cpp `getDir()` 정의 삭제
-- [x] Snake.h 선언 삭제
-- [x] 빌드 확인 (make) — 경고 없음
-
----
-
-### 항목 D — 미션 설계 확인 (코드 변경 없음, 보고만)
-
-**D-1. Mission B 판정: 최대 길이 기준 (main.cpp:266)**
-
-현재: `snake.getMaxLength() >= m.targetLength`  
-동작: Poison으로 길이가 줄어도 한 번 달성하면 [v] 유지됨.
-
-"현재 길이" 기준으로 바꿀 경우 영향:
-- `snake.getLength() >= m.targetLength`로 교체
-- Poison 섭취 후 B 조건이 다시 [ ]로 돌아갈 수 있음
-- 클리어 직전에 Poison을 먹으면 클리어 조건이 깨지는 위험 추가
-- 플레이어 입장에서 더 불리하고 불명확한 조건이 됨
-- **교수 확인 필요: 현재(최대 길이) 기준이 일반적인 설계이므로 이대로가 적절할 가능성 높음**
-
-**D-2. Stage 4 미션 {10, 5, 2, 3} — B/+ 중복**
-
-- maxLength ≥ 10 달성에는 Growth 7개 섭취 필요 (초기 길이 3)
-- Growth ≥ 5 조건은 maxLength ≥ 10 달성 시 항상 이미 충족
-- 즉 + 조건이 B 조건에 흡수됨 → + 조건이 독립적인 제약을 추가하지 못함
-- **교수 확인 필요: 의도된 설계(B가 어려워서 + 선행 달성이 자연스럽도록)인지, 실수인지 불분명**
-
----
-
-## 수정 1 — 반대 방향 입력 시 Game Over
-
-- [x] 구현 완료
-
-### 수정 파일
-
-| 파일 | 위치 | 변경 내용 |
-|------|------|-----------|
-| `snake-game/Snake.cpp` | 42번줄 | `return true;` → `return false;` |
-| `snake-game/main.cpp` | 187번줄 | 반환값 체크 추가 |
-| `snake-game/Snake.h` | 21번줄 주석 | "무시" → "즉시 게임 오버" |
-| `snake-game/main.cpp` | 57번줄 | 시작 화면 문구 변경 |
-
-### 변경 전/후
-
-**Snake.cpp:40-45**
+추가할 코드:
 ```cpp
-// 변경 전
-bool Snake::setNextDir(const int d) {
-    if (d == oppositeDir(dir_)) return true;
-    nextDir_ = d;
-    return true;
-}
-
-// 변경 후
-bool Snake::setNextDir(const int d) {
-    if (d == oppositeDir(dir_)) return false;
-    nextDir_ = d;
-    return true;
-}
+struct Mission {
+    int targetLength;
+    int targetGrowth;
+    int targetPoison;
+    int targetGate;
+};
 ```
-
-**main.cpp:183-188 (키 입력 처리 블록)**
+그리고 파일 끝 `oppositeDir` 인라인 함수 아래:
 ```cpp
-// 변경 전
-                    snake.setNextDir(dir);
-
-// 변경 후
-                    if (!snake.setNextDir(dir)) { failed = true; break; }
+extern const Mission MISSIONS[4];
 ```
 
-**main.cpp:57**
-```cpp
-// 변경 전
-    mvprintw(cy - 2, cx - 9, "  반대 방향 입력 → 무시됨");
-
-// 변경 후
-    mvprintw(cy - 2, cx - 9, "  반대 방향 입력 → 게임 오버");
-```
-
-**Snake.h:21 (setNextDir 선언 위 주석)**
-```cpp
-// 변경 전
-    // 반대 방향 입력은 무시
-
-// 변경 후
-    // 반대 방향 입력 시 false 반환 → 즉시 게임 오버
-```
+비고: `extern` 선언과 `oppositeDir` 순서는 8b8ecb1 그대로(oppositeDir 뒤에 extern).
 
 ---
 
-## 수정 2 — 미션 기반 스테이지 클리어 조건
+### Step 2 — Board.cpp: MISSIONS 정의 + drawScoreBoard Mission 블록 복원
 
-- [x] 구현 완료
+**위치:** `snake-game/Board.cpp`
 
-### 수정 파일
-
-| 파일 | 위치 | 변경 내용 |
-|------|------|-----------|
-| `snake-game/main.cpp` | 262-264번줄 | `food.allCollected()` → MISSIONS 4조건 검사 |
-
-### 변경 전/후
-
-**main.cpp:262-264**
+**(a) MISSIONS[4] 정의 삽입**  
+`#include <cstring>` 다음, `STAGE_MAPS` 배열 전에 삽입:
 ```cpp
-// 변경 전
-                // ── 클리어 조건: +1~+9 전부 수집 ────────────────
-                if (food.allCollected())
-                    cleared = true;
-
-// 변경 후
-                // ── 클리어 조건: 스테이지 미션 4가지 모두 달성 ────
-                const Mission& m = MISSIONS[stage];
-                if (snake.getMaxLength()        >= m.targetLength &&
-                    food.getCollectedCount()    >= m.targetGrowth &&
-                    poisonCount                 >= m.targetPoison &&
-                    gateCount                   >= m.targetGate)
-                    cleared = true;
+// ── 미션 조건 (extern 정의) ───────────────────────────────────────
+const Mission MISSIONS[4] = {
+    {  6,  2, 1, 0 },  // Stage 1
+    {  7,  3, 1, 1 },  // Stage 2
+    {  8,  4, 2, 2 },  // Stage 3
+    { 10,  5, 2, 3 },  // Stage 4
+};
 ```
 
-### 주의사항
+**(b) drawScoreBoard 내 행 번호 3곳 변경 + Mission 블록 삽입**
 
-- `MISSIONS` 배열은 `Common.h`에 `extern const Mission MISSIONS[4];` 선언 → `main.cpp` 포함 시 접근 가능
-- `food.getCollectedCount()` 이미 217번줄에서 사용 중 → 재사용 가능
-- `poisonCount`, `gateCount` 스테이지 시작 시 0으로 초기화되므로 누적값 정확
-
----
-
-## 수정 3 — Score Board 미션 달성 현황 표시
-
-- [x] 구현 완료
-
-### 수정 파일
-
-| 파일 | 위치 | 변경 내용 |
-|------|------|-----------|
-| `snake-game/Board.cpp` | drawScoreBoard (259-305) | `+: N` 행 추가, Mission 섹션 신설, Growth/Effects 행 이동 |
-| `snake-game/Board.cpp` | drawActiveEffects (309-310) | row 15→19, row 16→20 |
-
-### 새 레이아웃
-
-```
-row  1: [ Score Board ]
-row  2: Stage  : N
-row  3: Time   : Xs
-row  4: Score  : N
-row  5: Best   : N
-row  6: (공백)
-row  7: B: N / N
-row  8: +: N           ← 신규
-row  9: -: N
-row 10: G: N
-row 11: (공백)
-row 12: [ Mission ]    ← 신규 섹션 헤더
-row 13: B: 6   [v]     ← 신규 (조건 미달성이면 [ ])
-row 14: +: 2   [v]     ← 신규
-row 15: -: 1   [v]     ← 신규
-row 16: G: 0   [v]     ← 신규
-row 17: [ Growth N/9 ] ← 기존 row 11에서 이동
-row 18: +1 +2 +3 +4 +5 ← 기존 row 12에서 이동
-row 19: +6 +7 +8 +9    ← 기존 row 13에서 이동
-row 20: [ Effects ]    ← 기존 row 15에서 이동 (drawActiveEffects)
-row 21: effects string ← 기존 row 16에서 이동
-```
-
-윈도우 `winBoard_` = `newwin(MAP_SIZE+2, 30, ...)` → 유효 행 row 1~21, 정확히 맞음
-
-### 변경 전/후
-
-**Board.cpp drawScoreBoard 전체 교체 (259-305)**
-
+현재:
 ```cpp
-// 변경 전 (row 7-9, 11-13 블록)
-    mvwprintw(winBoard_,  7, 2, "B: %d / %d",   curLen, maxLen);
-    mvwprintw(winBoard_,  8, 2, "-: %d",         poison);
-    mvwprintw(winBoard_,  9, 2, "G: %d",         gate);
+    mvwprintw(winBoard_, 12, 2, "[ Growth %d/9 ]", growthCnt);
 
-    int cnt = 0;
-    for (int i = 0; i < 9; i++) if (collected[i]) cnt++;
-    mvwprintw(winBoard_, 11, 2, "[ Growth %d/9 ]", cnt);
-
+    // +1~+5: row 13,  +6~+9: row 14
     for (int row = 0; row < 2; row++) {
-        wmove(winBoard_, 12 + row, 2);
-        ...
-    }
+        wmove(winBoard_, 13 + row, 2);
 ```
 
+복원 목표:
 ```cpp
-// 변경 후 (row 7-10 + Mission row 12-16 + Growth row 17-19)
-    int growthCnt = 0;
-    for (int i = 0; i < 9; i++) if (collected[i]) growthCnt++;
-
-    mvwprintw(winBoard_,  7, 2, "B: %d / %d",   curLen, maxLen);
-    mvwprintw(winBoard_,  8, 2, "+: %d",         growthCnt);
-    mvwprintw(winBoard_,  9, 2, "-: %d",         poison);
-    mvwprintw(winBoard_, 10, 2, "G: %d",         gate);
-
     mvwprintw(winBoard_, 12, 2, "[ Mission ]");
     const Mission& m = MISSIONS[stage];
     mvwprintw(winBoard_, 13, 2, "B: %-3d  [%c]", m.targetLength,
@@ -310,134 +97,153 @@ row 21: effects string ← 기존 row 16에서 이동
               (gate      >= m.targetGate)   ? 'v' : ' ');
 
     mvwprintw(winBoard_, 17, 2, "[ Growth %d/9 ]", growthCnt);
+
+    // +1~+5: row 18,  +6~+9: row 19
     for (int row = 0; row < 2; row++) {
         wmove(winBoard_, 18 + row, 2);
-        const int start = row * 5;
-        const int end   = (row == 0) ? 5 : 9;
-        for (int i = start; i < end; i++) {
-            if (collected[i]) {
-                wattron(winBoard_, COLOR_PAIR(6) | A_BOLD);
-                wprintw(winBoard_, "+%d ", i + 1);
-                wattroff(winBoard_, COLOR_PAIR(6) | A_BOLD);
-            } else {
-                wattron(winBoard_, COLOR_PAIR(7));
-                wprintw(winBoard_, "+%d ", i + 1);
-                wattroff(winBoard_, COLOR_PAIR(7));
-            }
-        }
+```
+
+비고: `drawScoreBoard` 시그니처에 `stage` 파라미터가 이미 있으므로 추가 파라미터 불필요.
+
+---
+
+### Step 3 — Snake.cpp: Poison 처리 복원 (shrank 로직)
+
+**위치:** `snake-game/Snake.cpp`, move 함수 내 아이템 소비 구역
+
+현재 코드 (행 106–123):
+```cpp
+    bool grew = false;
+
+    if (headCell == CELL_GROWTH) {
+        if (food.consume(newHead.y, newHead.x, board))
+            grew = true;
+    } else if (headCell == CELL_POISON) {
+        if (poison.consume(newHead.y, newHead.x, board))
+            { poisonCount++; return false; }
+    } else if (headCell >= CELL_SPEED && headCell <= CELL_REVERSE) {
+        special.consume(newHead.y, newHead.x, board);
+    }
+
+    // ── 꼬리 처리 ────────────────────────────────────────────────
+    if (!grew) {
+        const Point& tail = body_.back();
+        board.setCell(tail.y, tail.x, board.getBase(tail.y, tail.x));
+        body_.pop_back();
     }
 ```
 
-**Board.cpp drawActiveEffects (309-310)**
+복원 목표:
 ```cpp
-// 변경 전
-    mvwprintw(winBoard_, 15, 2, "[ Effects ]");
-    mvwprintw(winBoard_, 16, 2, "%-26s", effects.c_str());
+    bool grew   = false;
+    bool shrank = false;
 
-// 변경 후
-    mvwprintw(winBoard_, 20, 2, "[ Effects ]");
-    mvwprintw(winBoard_, 21, 2, "%-26s", effects.c_str());
+    if (headCell == CELL_GROWTH) {
+        if (food.consume(newHead.y, newHead.x, board))
+            grew = true;
+    } else if (headCell == CELL_POISON) {
+        if (poison.consume(newHead.y, newHead.x, board))
+            { shrank = true; poisonCount++; }
+    } else if (headCell >= CELL_SPEED && headCell <= CELL_REVERSE) {
+        special.consume(newHead.y, newHead.x, board);
+    }
+
+    // ── 꼬리 처리 ────────────────────────────────────────────────
+    if (!grew) {
+        const Point& tail = body_.back();
+        board.setCell(tail.y, tail.x, board.getBase(tail.y, tail.x));
+        body_.pop_back();
+    }
+
+    if (shrank) {
+        if ((int)body_.size() <= 1) return false;
+        const Point& tail = body_.back();
+        board.setCell(tail.y, tail.x, board.getBase(tail.y, tail.x));
+        body_.pop_back();
+        if ((int)body_.size() < 3) return false;
+    }
 ```
 
-### 파라미터 변경 없음
-
-`drawScoreBoard` 시그니처 그대로 유지. `stage`에서 `MISSIONS[stage]` 접근, `growthCnt`는 내부에서 `collected[9]` 순회로 계산.
+비고: `if (shrank)` 블록은 일반 꼬리 처리 뒤, Head 삽입 전에 위치해야 함.
 
 ---
 
-## 수정 4 — Growth + Poison 합산 3개 제한
+### Step 4 — main.cpp: 클리어 조건 복원
 
-- [x] 구현 완료
+**위치:** `snake-game/main.cpp`, 게임 루프 내 클리어 판정 구역
 
-### 수정 파일
-
-| 파일 | 위치 | 변경 내용 |
-|------|------|-----------|
-| `snake-game/main.cpp` | 239-244번줄 | 합산 체크 추가 |
-
-### 변경 전/후
-
-**main.cpp:239-244**
+현재:
 ```cpp
-// 변경 전
-                // ── 일반 아이템 출현 (15틱마다) ──────────────────
-                itemTick++;
-                if (itemTick >= 15) {
-                    food.spawn(board);
-                    poison.spawn(board);
-                    itemTick = 0;
-                }
-
-// 변경 후
-                // ── 일반 아이템 출현 (15틱마다) ──────────────────
-                itemTick++;
-                if (itemTick >= 15) {
-                    if (food.getCount() + poison.getCount() < ITEM_LIMIT)
-                        food.spawn(board);
-                    if (food.getCount() + poison.getCount() < ITEM_LIMIT)
-                        poison.spawn(board);
-                    itemTick = 0;
-                }
+                // ── 클리어 조건: +1~+9 전부 수집 ──
+                if (food.allCollected())
+                    cleared = true;
 ```
 
-### 동작 원리
+복원 목표:
+```cpp
+                // ── 클리어 조건: 미션 B/+/-/G 전부 달성 ──
+                const Mission& m = MISSIONS[stage];
+                if (snake.getMaxLength()     >= m.targetLength &&
+                    food.getCollectedCount() >= m.targetGrowth &&
+                    poisonCount              >= m.targetPoison &&
+                    gateCount                >= m.targetGate)
+                    cleared = true;
+```
 
-- 첫 번째 체크: Food 스폰 전 합산 < 3이면 Food 스폰 시도
-- 두 번째 체크: Food 스폰 후 갱신된 합산 < 3이면 Poison 스폰 시도
-- Food/Poison 내부의 `ITEM_LIMIT` 체크는 방어 코드로 유지 (변경 없음)
-- 결과: 맵 위 Growth + Poison 합계가 항상 3 이하로 유지됨
+비고: `food.allCollected()` 기반 경로는 완전 제거.
 
 ---
 
-## 수정 5 — Makefile macOS 링크 보완
+### Step 5 — README.md: 복원 내용 반영
 
-- [x] 구현 완료
+수정 필요 섹션 (코드와 일치 확인 후 어긋난 부분만):
 
-### 수정 파일
-
-| 파일 | 위치 | 변경 내용 |
-|------|------|-----------|
-| `snake-game/Makefile` | 11-13번줄 Darwin 블록 | brew 경로 변수화, fallback 추가 |
-
-### 변경 전/후
-
-**Makefile:10-16**
-```makefile
-# 변경 전
-ifeq ($(shell uname), Darwin)
-    CXXFLAGS += -I$(shell brew --prefix ncurses)/include
-    LDFLAGS   = -L$(shell brew --prefix ncurses)/lib -lncursesw
-else
-    LDFLAGS   = -lncursesw
-endif
-
-# 변경 후
-ifeq ($(shell uname), Darwin)
-    BREW_NCURSES := $(shell brew --prefix ncurses 2>/dev/null)
-    ifneq ($(BREW_NCURSES),)
-        CXXFLAGS += -I$(BREW_NCURSES)/include
-        LDFLAGS   = -L$(BREW_NCURSES)/lib -lncursesw
-    else
-        LDFLAGS   = -lncurses
-    endif
-else
-    LDFLAGS   = -lncursesw
-endif
-```
-
-### 동작 매트릭스
-
-| 환경 | brew ncurses | 결과 |
-|------|-------------|------|
-| macOS (brew ncurses 설치) | 경로 반환 | `-I.../include -L.../lib -lncursesw` |
-| macOS (brew ncurses 미설치) | 빈 문자열 | `-lncurses` (macOS 기본) |
-| Linux / Docker | uname≠Darwin | else 브랜치 → `-lncursesw` |
+| 섹션 | 현재 | 복원 |
+|---|---|---|
+| § 2 게임 화면 ASCII | Mission 없음 | `[ Mission ]` 4줄 추가 |
+| § 6-4 클리어 조건 | +1~+9 전부 수집 | 미션 B/+/-/G 4조건 AND 설명 |
+| § 7-2 Poison | "즉시 게임 오버" | "길이 -1 (꼬리 2칸 제거), 길이 3 미만 시 게임 오버" |
+| § 9-1 점수 체계 | Poison -5 없음 | `-5점/개` 행 복원 |
+| § 10 스테이지별 | 미션 목표 없음 | 각 스테이지 B/+/-/G 값 복원 |
 
 ---
 
-## README.md 업데이트 (구현 후)
+### Step 6 — 빌드 검증
 
-수정 1, 2, 4 완료 후 해당 섹션 갱신:
-- "반대 방향 입력 → 무시됨" 문구 수정
-- Stage Clear 조건 설명 (미션 4가지 달성)
-- 아이템 제한 설명 (Growth+Poison 합산 3개)
+```bash
+cd snake-game && make clean && make 2>&1 | grep -E "error:|warning:"
+```
+- -Wall -Wextra 경고 0개 확인
+- 선택: Docker build로 Linux 환경 확인
+
+---
+
+### Step 7 — git 커밋 & 푸시
+
+```
+Restore mission-based stage clear and poison shrink per assignment spec
+```
+
+---
+
+## 트레이드오프
+
+| 항목 | 옵션 A (git checkout) | 옵션 B (수술적 편집, 채택) |
+|---|---|---|
+| 정확성 | 8b8ecb1 완벽 복원 | hunk 단위 수동 복원 |
+| 안전성 | 비관련 변경도 덮어씀 위험 | 변경 범위 명시적 |
+| 검토 용이성 | diff 전체 보여야 함 | diff가 작고 명확 |
+| 채택 이유 | — | 4개 파일 모두 해당 구간 이외 변경 없음 확인됨 |
+
+---
+
+## 체크리스트
+
+- [x] Step 1: Common.h — struct Mission + extern 추가
+- [x] Step 2a: Board.cpp — MISSIONS[4] 정의 추가 (easier 값 적용)
+- [x] Step 2b: Board.cpp — drawScoreBoard Mission 블록 + 행 번호 복원
+- [x] Step 3: Snake.cpp — shrank 로직 복원
+- [x] Step 4: main.cpp — 미션 기반 클리어 조건 복원
+- [x] Step 5: README.md — 해당 섹션 수정
+- [x] Step 6: `make` 빌드 성공 (-Wall -Wextra 경고 0)
+- [ ] Step 7: git commit & push

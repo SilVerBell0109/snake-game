@@ -7,6 +7,14 @@
 #include <ncurses.h>
 #include <cstring>
 
+// ── 미션 조건 (extern 정의) ───────────────────────────────────────
+const Mission MISSIONS[4] = {
+    {  5,  2, 1, 0 },  // Stage 1
+    {  6,  3, 1, 1 },  // Stage 2
+    {  7,  4, 2, 1 },  // Stage 3
+    {  9,  5, 2, 2 },  // Stage 4
+};
+
 // ── 스테이지 맵 데이터 ────────────────────────────────────────────
 // 2 = Immune Wall(꼭짓점 + 대부분 테두리), 1 = Wall(테두리 중앙 3칸 + 내부), 0 = 빈 공간
 // 테두리 Gate 가능 구간: top/bottom col 9-11, left/right row 9-11
@@ -275,11 +283,22 @@ void Board::drawScoreBoard(const int stage, const int elapsedSec,
     mvwprintw(winBoard_,  9, 2, "-: %d",         poison);
     mvwprintw(winBoard_, 10, 2, "G: %d",         gate);
 
-    mvwprintw(winBoard_, 12, 2, "[ Growth %d/9 ]", growthCnt);
+    mvwprintw(winBoard_, 12, 2, "[ Mission ]");
+    const Mission& m = MISSIONS[stage];
+    mvwprintw(winBoard_, 13, 2, "B: %-3d  [%c]", m.targetLength,
+              (maxLen    >= m.targetLength) ? 'v' : ' ');
+    mvwprintw(winBoard_, 14, 2, "+: %-3d  [%c]", m.targetGrowth,
+              (growthCnt >= m.targetGrowth) ? 'v' : ' ');
+    mvwprintw(winBoard_, 15, 2, "-: %-3d  [%c]", m.targetPoison,
+              (poison    >= m.targetPoison) ? 'v' : ' ');
+    mvwprintw(winBoard_, 16, 2, "G: %-3d  [%c]", m.targetGate,
+              (gate      >= m.targetGate)   ? 'v' : ' ');
 
-    // +1~+5: row 13,  +6~+9: row 14
+    mvwprintw(winBoard_, 17, 2, "[ Growth %d/9 ]", growthCnt);
+
+    // +1~+5: row 18,  +6~+9: row 19
     for (int row = 0; row < 2; row++) {
-        wmove(winBoard_, 13 + row, 2);
+        wmove(winBoard_, 18 + row, 2);
         const int start = row * 5;
         const int end   = (row == 0) ? 5 : 9;
         for (int i = start; i < end; i++) {

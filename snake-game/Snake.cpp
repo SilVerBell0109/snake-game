@@ -103,14 +103,15 @@ bool Snake::move(Board& board, Food& food, Poison& poison,
 
     // ── 아이템 소비 ──────────────────────────────────────────────
     const int headCell = board.getCell(newHead.y, newHead.x);
-    bool grew = false;
+    bool grew   = false;
+    bool shrank = false;
 
     if (headCell == CELL_GROWTH) {
         if (food.consume(newHead.y, newHead.x, board))
             grew = true;
     } else if (headCell == CELL_POISON) {
         if (poison.consume(newHead.y, newHead.x, board))
-            { poisonCount++; return false; }
+            { shrank = true; poisonCount++; }
     } else if (headCell >= CELL_SPEED && headCell <= CELL_REVERSE) {
         special.consume(newHead.y, newHead.x, board);
     }
@@ -120,6 +121,14 @@ bool Snake::move(Board& board, Food& food, Poison& poison,
         const Point& tail = body_.back();
         board.setCell(tail.y, tail.x, board.getBase(tail.y, tail.x));
         body_.pop_back();
+    }
+
+    if (shrank) {
+        if ((int)body_.size() <= 1) return false;
+        const Point& tail = body_.back();
+        board.setCell(tail.y, tail.x, board.getBase(tail.y, tail.x));
+        body_.pop_back();
+        if ((int)body_.size() < 3) return false;
     }
 
     // ── 기존 Head → Body, 새 Head 삽입 ──────────────────────────
