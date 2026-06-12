@@ -128,15 +128,13 @@ int main() {
 
     showStartScreen(highScore);
 
-    bool restart      = true;
-    int  restartStage = 0;
+    int  restartStage    = 0;
+    int  prevStagesScore = 0;  // 이전 스테이지 누적 점수
+
+    bool restart = true;
     while (restart) {
         restart = false;
-
-        int stagesCleared = restartStage;
-        bool gameQuit     = false;
-        int  totalGrowth  = 0;
-        int  totalGate    = 0;
+        bool gameQuit = false;
 
         for (int stage = restartStage; stage < 4 && !gameQuit; stage++) {
             board.loadStage(stage);
@@ -150,13 +148,14 @@ int main() {
             snake.init(board);
             gate.spawn(board);
 
-            int itemTick   = 0;
+            int itemTick    = 0;
             int specialTick = 0;
-            int timeTick   = 0;
-            int elapsedSec = 0;
+            int timeTick    = 0;
+            int elapsedSec  = 0;
 
-            int poisonCount = 0;
-            int gateCount   = 0;
+            int poisonCount  = 0;
+            int gateCount    = 0;
+            int currentScore = 0;  // 이번 스테이지 점수
 
             bool failed  = false;
             bool cleared = false;
@@ -180,7 +179,6 @@ int main() {
                     int dir = -1;
                     if (key == KEY_UP   || key == 'w' || key == 'W') dir = UP;
                     if (key == KEY_DOWN || key == 's' || key == 'S') dir = DOWN;
-                    // Mirror 효과: 좌우 키 방향 반전
                     if (key == KEY_LEFT  || key == 'a' || key == 'A')
                         dir = special.isMirrorActive() ? RIGHT : LEFT;
                     if (key == KEY_RIGHT || key == 'd' || key == 'D')
@@ -200,10 +198,32 @@ int main() {
                     timeTick = 0;
                 }
 
+                // ── 점수 델타 기준치 저장 ────────────────────────
+                const int prevCollected = food.getCollectedCount();
+                const int prevPoison    = poisonCount;
+                const int prevGate      = gateCount;
+
                 // ── 뱀 이동 ─────────────────────────────────────
                 if (!snake.move(board, food, poison, gate, special,
                                 poisonCount, gateCount)) {
                     failed = true; break;
+                }
+
+                // ── 점수 갱신 ────────────────────────────────────
+                // Growth  : +10점/개
+                // Gate    : +15점/통과
+                // Special : +5점/개
+                // Poison  : -5점/개 (0점 미만 방지)
+                currentScore += (food.getCollectedCount() - prevCollected) * 10;
+                currentScore += (gateCount  - prevGate)   * 15;
+                currentScore += special.takeConsumed()     * 5;
+                currentScore -= (poisonCount - prevPoison) * 5;
+                if (currentScore < 0) currentScore = 0;
+
+                const int totalScore = prevStagesScore + currentScore;
+                if (totalScore > highScore) {
+                    highScore = totalScore;
+                    saveHighScore(highScore);
                 }
 
                 // ── 아이템 수명 갱신 ─────────────────────────────
@@ -235,50 +255,67 @@ int main() {
                 board.drawScoreBoard(stage, elapsedSec,
                                      snake.getLength(), snake.getMaxLength(),
                                      food.getCollected(),
-                                     poisonCount, gateCount);
+                                     poisonCount, gateCount,
+                                     totalScore, highScore);
                 board.drawActiveEffects(special.getActiveEffectStr());
 
-                // ── 클리어 조건: +1~+9 전부 수집 ────────────────────
+                // ── 클리어 조건: +1~+9 전부 수집 ────────────────
                 if (food.allCollected())
                     cleared = true;
             }
 
-            totalGrowth += food.getCollectedCount();
-            totalGate   += gateCount;
-
             // ── 스테이지 결과 처리 ────────────────────────────────
             if (failed && !gameQuit) {
-                board.showMessage(" ** GAME OVER **  R: 재시작 / Q: 종료 ");
-                nodelay(board.getWinMap(), FALSE);
+                const int totalScore = prevStagesScore + currentScore;
+                WINDOW* wm = board.getWinMap();
+                nodelay(wm, FALSE);
+                wattron(wm, COLOR_PAIR(7) | A_BOLD);
+                mvwprintw(wm,  8, 5, "   **** GAME OVER ****    ");
+                wattroff(wm, COLOR_PAIR(7) | A_BOLD);
+                wattron(wm, COLOR_PAIR(4));
+                mvwprintw(wm,  9, 5, " Score : %-6d           ", totalScore);
+                mvwprintw(wm, 10, 5, " Best  : %-6d           ", highScore);
+                wattroff(wm, COLOR_PAIR(4));
+                mvwprintw(wm, 12, 5, " R : 처음부터 (점수 초기화) ");
+                mvwprintw(wm, 13, 5, " C : 현재 스테이지 재시작   ");
+                mvwprintw(wm, 14, 5, " Q : 종료                   ");
+                wrefresh(wm);
                 while (true) {
-                    const int k = wgetch(board.getWinMap());
-                    if (k == 'r' || k == 'R') { restart = true; restartStage = stage; break; }
+                    const int k = wgetch(wm);
+                    if (k == 'r' || k == 'R') {
+                        restart = true;
+                        restartStage    = 0;
+                        prevStagesScore = 0;
+                        break;
+                    }
+                    if (k == 'c' || k == 'C') {
+                        restart = true;
+                        restartStage = stage;
+                        // prevStagesScore 유지
+                        break;
+                    }
                     if (k == 'q' || k == 'Q') break;
-                }
-                const int finalScore = totalGrowth * 10 + totalGate * 20
-                                       + stagesCleared * 100;
-                if (finalScore > highScore) {
-                    highScore = finalScore;
-                    saveHighScore(highScore);
                 }
                 break;
             }
 
             if (cleared) {
-                stagesCleared++;
+                // 스테이지 클리어 보너스 +200
+                currentScore += 200;
+                prevStagesScore += currentScore;
+                if (prevStagesScore > highScore) {
+                    highScore = prevStagesScore;
+                    saveHighScore(highScore);
+                }
+
                 if (stage < 3) {
-                    board.showMessage(" Stage Clear!  Next Stage... ");
+                    board.showMessage(" Stage Clear! (+200pts)  Next Stage... ");
                 } else {
-                    const int finalScore = totalGrowth * 10 + totalGate * 20
-                                           + stagesCleared * 100;
-                    if (finalScore > highScore) {
-                        highScore = finalScore;
-                        saveHighScore(highScore);
-                    }
                     board.showMessage(" ** ALL CLEAR **  Congratulations! ");
                     nodelay(board.getWinMap(), FALSE);
                     wgetch(board.getWinMap());
-                    restartStage = 0;
+                    restartStage    = 0;
+                    prevStagesScore = 0;
                 }
                 napms(300);
             }

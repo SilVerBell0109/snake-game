@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <sstream>
 
-Special::Special() : reverseFlag_(false) {}
+Special::Special() : reverseFlag_(false), consumed_(0) {}
 
 // ── 내부 헬퍼 ──────────────────────────────────────────────────────────────
 
@@ -119,9 +119,16 @@ bool Special::consume(const int y, const int x, Board& board) {
             reverseFlag_ = true;   // Snake::move()에서 wasReversed()로 확인 후 처리
             break;
         }
+        consumed_++;
         return true;
     }
     return false;
+}
+
+int Special::takeConsumed() {
+    const int c = consumed_;
+    consumed_ = 0;
+    return c;
 }
 
 // Shield 1회 소비 (벽/자기 충돌 시 Snake에서 호출)

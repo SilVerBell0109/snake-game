@@ -259,25 +259,33 @@ void Board::draw() const {
 void Board::drawScoreBoard(const int stage, const int elapsedSec,
                            const int curLen, const int maxLen,
                            const bool collected[9],
-                           const int poison, const int gate) const {
+                           const int poison, const int gate,
+                           const int score, const int highScore) const {
     werase(winBoard_);
     box(winBoard_, 0, 0);
 
     mvwprintw(winBoard_,  1, 2, "[ Score Board ]");
-    mvwprintw(winBoard_,  2, 2, "Stage  : %d",  stage + 1);
-    mvwprintw(winBoard_,  3, 2, "Time   : %ds", elapsedSec);
+    mvwprintw(winBoard_,  2, 2, "Stage  : %d",    stage + 1);
+    mvwprintw(winBoard_,  3, 2, "Time   : %ds",   elapsedSec);
 
-    mvwprintw(winBoard_,  5, 2, "B: %d / %d",   curLen, maxLen);
-    mvwprintw(winBoard_,  6, 2, "-: %d",         poison);
-    mvwprintw(winBoard_,  7, 2, "G: %d",         gate);
+    wattron(winBoard_, COLOR_PAIR(4) | A_BOLD);
+    mvwprintw(winBoard_,  4, 2, "Score  : %-7d", score);
+    wattroff(winBoard_, COLOR_PAIR(4) | A_BOLD);
+    wattron(winBoard_, COLOR_PAIR(9));
+    mvwprintw(winBoard_,  5, 2, "Best   : %-7d", highScore);
+    wattroff(winBoard_, COLOR_PAIR(9));
+
+    mvwprintw(winBoard_,  7, 2, "B: %d / %d",   curLen, maxLen);
+    mvwprintw(winBoard_,  8, 2, "-: %d",         poison);
+    mvwprintw(winBoard_,  9, 2, "G: %d",         gate);
 
     int cnt = 0;
     for (int i = 0; i < 9; i++) if (collected[i]) cnt++;
-    mvwprintw(winBoard_,  9, 2, "[ Growth %d/9 ]", cnt);
+    mvwprintw(winBoard_, 11, 2, "[ Growth %d/9 ]", cnt);
 
-    // +1~+5: row 10,  +6~+9: row 11
+    // +1~+5: row 12,  +6~+9: row 13
     for (int row = 0; row < 2; row++) {
-        wmove(winBoard_, 10 + row, 2);
+        wmove(winBoard_, 12 + row, 2);
         const int start = row * 5;
         const int end   = (row == 0) ? 5 : 9;
         for (int i = start; i < end; i++) {
@@ -298,8 +306,8 @@ void Board::drawScoreBoard(const int stage, const int elapsedSec,
 
 // ── 활성 특수 효과 표시 ─────────────────────────────────────────
 void Board::drawActiveEffects(const std::string& effects) const {
-    mvwprintw(winBoard_, 13, 2, "[ Effects ]");
-    mvwprintw(winBoard_, 14, 2, "%-26s", effects.c_str());
+    mvwprintw(winBoard_, 15, 2, "[ Effects ]");
+    mvwprintw(winBoard_, 16, 2, "%-26s", effects.c_str());
     wrefresh(winBoard_);
 }
 

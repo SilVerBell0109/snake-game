@@ -45,10 +45,14 @@ public:
     // 활성 효과 표시 문자열 반환 (e.g. "[SPEED 4s] [SHIELD]")
     std::string getActiveEffectStr() const;
 
+    // 이번 틱에 소비된 특수아이템 수 반환 후 리셋 (점수 계산용)
+    int takeConsumed();
+
 private:
     std::vector<Item>         mapItems_;
     std::vector<ActiveEffect> effects_;
     bool                      reverseFlag_;
+    int                       consumed_;
 
     bool hasMapItem(int cellType) const;
     bool hasEffect(int type)      const;
